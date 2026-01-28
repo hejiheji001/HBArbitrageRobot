@@ -48,7 +48,7 @@ class Program
             var page = await context.NewPageAsync();
 
             // Step 2: Navigate to login page
-            var loginUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
+            var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
             Console.WriteLine($"\nNavigating to login page: {loginUrl}");
             await page.GotoAsync(loginUrl);
 
@@ -60,16 +60,24 @@ class Program
             
             try
             {
-                // Wait for login form elements
-                await page.WaitForSelectorAsync("input[type='text'], input[type='tel'], input[name*='user'], input[name*='phone']", new PageWaitForSelectorOptions { Timeout = 10000 });
+                // Wait for login form elements - based on actual DOM structure
+                await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
                 
-                // Fill in credentials
-                var usernameSelector = "input[type='text'], input[type='tel'], input[name*='user'], input[name*='phone']";
-                var passwordSelector = "input[type='password']";
-                var submitSelector = "button[type='submit'], button:has-text('登录'), button:has-text('Login')";
+                // Fill in credentials using actual DOM selectors
+                var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
+                var passwordSelector = "input[type='tel'][max='6'].hide_input";
+                var checkboxSelector = "div.check-input";
+                var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
                 
                 await page.FillAsync(usernameSelector, username);
                 await page.FillAsync(passwordSelector, password);
+                
+                // Click the confirmation checkbox before submitting
+                Console.WriteLine("Clicking confirmation checkbox...");
+                await page.ClickAsync(checkboxSelector);
+                
+                // Wait a moment for the button to become enabled
+                await Task.Delay(500);
                 
                 Console.WriteLine("Credentials entered, submitting...");
                 await page.ClickAsync(submitSelector);
