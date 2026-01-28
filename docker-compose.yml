@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Server/Dockerfile
+    container_name: hb-arbitrage-server
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+    networks:
+      - hb-network
+
+  client:
+    build:
+      context: .
+      dockerfile: Client/Dockerfile
+    container_name: hb-arbitrage-client
+    environment:
+      - USERNAME=${USERNAME}
+      - PASSWORD=${PASSWORD}
+      - API_URL=http://server:8080
+      - HEADLESS=true
+    depends_on:
+      - server
+    restart: unless-stopped
+    networks:
+      - hb-network
+
+networks:
+  hb-network:
+    driver: bridge
