@@ -19,36 +19,24 @@ RUN dotnet publish Client.csproj -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
-# Install necessary dependencies for Playwright
-RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libdbus-1-3 \
-    libxkbcommon0 \
-    libatspi2.0-0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2 \
-    libxshmfence1 \
-    libxshmfence-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=publish /app/publish .
 
-# Install Playwright browsers
-RUN apt-get update && apt-get install -y wget unzip && \
-    apt-get install -y pwsh && \
-    pwsh -c "dotnet /app/playwright.ps1 install chromium" && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install Playwright dependencies using official Playwright installation
+# First install PowerShell and required tools
+RUN apt-get update && apt-get install -y \
+    wget \
+    ca-certificates \
+    && wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y powershell \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright browsers and dependencies
+RUN pwsh -c "dotnet /app/playwright.ps1 install --with-deps chromium" \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
 ENV HEADLESS=true
