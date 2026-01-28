@@ -16,6 +16,7 @@ A .NET 10 application with Server and Client components for automated arbitrage 
   - Navigates to trading interface after successful authentication
 
 - **Docker Support**: Fully containerized with Docker and Docker Compose
+- **CI/CD**: Automated Docker image building and publishing via GitHub Actions
 
 ## Requirements
 
@@ -180,7 +181,35 @@ The client supports configuration via:
 
 ## Publishing Docker Images
 
-### Build and Tag Images
+### Automated Publishing (GitHub Actions)
+
+Docker images are automatically built and published to GitHub Container Registry (ghcr.io) when:
+- Code is pushed to `main` or `master` branch
+- A new version tag (e.g., `v1.0.0`) is created
+- Manually triggered via GitHub Actions workflow dispatch
+
+Published images:
+- Server: `ghcr.io/hejiheji001/hbarbitragerobot-server:latest`
+- Client: `ghcr.io/hejiheji001/hbarbitragerobot-client:latest`
+
+To use the published images:
+
+```bash
+# Pull images
+docker pull ghcr.io/hejiheji001/hbarbitragerobot-server:latest
+docker pull ghcr.io/hejiheji001/hbarbitragerobot-client:latest
+
+# Or use with Docker Compose (update docker-compose.yml)
+services:
+  server:
+    image: ghcr.io/hejiheji001/hbarbitragerobot-server:latest
+  client:
+    image: ghcr.io/hejiheji001/hbarbitragerobot-client:latest
+```
+
+### Manual Publishing
+
+If you need to publish images manually to a different registry:
 
 ```bash
 # Build Server image
@@ -188,11 +217,7 @@ docker build -t hbarbitragerobot-server:latest -f Server/Dockerfile .
 
 # Build Client image
 docker build -t hbarbitragerobot-client:latest -f Client/Dockerfile .
-```
 
-### Push to Docker Registry
-
-```bash
 # Tag for registry
 docker tag hbarbitragerobot-server:latest your-registry/hbarbitragerobot-server:latest
 docker tag hbarbitragerobot-client:latest your-registry/hbarbitragerobot-client:latest

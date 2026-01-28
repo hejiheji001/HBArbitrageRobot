@@ -69,3 +69,6 @@ $RECYCLE.BIN/
 # Logs
 logs/
 *.log
+
+# Environment files with credentials
+.env
