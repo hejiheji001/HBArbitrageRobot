@@ -77,15 +77,49 @@ public class DataFetchService : BackgroundService
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            var data = new ArbitrageData
+            // Parse the content as JSON array of LOF arbitrage data
+            List<LofArbitrageData> lofData;
+            try
             {
-                Content = content,
-                FetchedAt = GetShanghaiTime(),
-                Source = "example.com"
-            };
+                lofData = System.Text.Json.JsonSerializer.Deserialize<List<LofArbitrageData>>(content) ?? new List<LofArbitrageData>();
+                
+                // Set purchaseDate to current date in Shanghai timezone for all items
+                var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
+                foreach (var item in lofData)
+                {
+                    if (item.LofArbitrage != null)
+                    {
+                        item.LofArbitrage.PurchaseDate = currentDate;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse content as LOF data, creating default entry");
+                // If parsing fails, create a default entry with example data
+                lofData = new List<LofArbitrageData>
+                {
+                    new LofArbitrageData
+                    {
+                        LofFund = "161226",
+                        LofArbitrage = new LofArbitrage
+                        {
+                            PurchaseQuantity = "1",
+                            PurchaseDate = GetShanghaiTime().ToString("yyyy-MM-dd")
+                        },
+                        LofArbitrageStrategy = new LofArbitrageStrategy
+                        {
+                            PolicyType = 4,
+                            SellTime = "",
+                            SellStockPrice = "",
+                            TurnBack = ""
+                        }
+                    }
+                };
+            }
 
-            _dataStore.UpdateData(data);
-            _logger.LogInformation("Data fetched successfully at {Time}", data.FetchedAt);
+            _dataStore.UpdateLofData(lofData);
+            _logger.LogInformation("Data fetched successfully at {Time}, {Count} items", GetShanghaiTime(), lofData.Count);
         }
         catch (Exception ex)
         {

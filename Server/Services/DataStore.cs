@@ -4,30 +4,40 @@ namespace Server.Services;
 
 public class DataStore
 {
-    private ArbitrageData? _currentData;
+    private List<LofArbitrageData>? _currentLofData;
     private readonly object _lock = new();
 
-    public void UpdateData(ArbitrageData data)
+    public void UpdateLofData(List<LofArbitrageData> data)
     {
         lock (_lock)
         {
-            _currentData = data;
+            _currentLofData = data;
         }
     }
 
-    public ArbitrageData? GetCurrentData()
+    public List<LofArbitrageData>? GetCurrentLofData()
     {
         lock (_lock)
         {
             // Return a copy to prevent external modifications
-            if (_currentData == null) return null;
+            if (_currentLofData == null) return null;
             
-            return new ArbitrageData
+            return _currentLofData.Select(d => new LofArbitrageData
             {
-                Content = _currentData.Content,
-                FetchedAt = _currentData.FetchedAt,
-                Source = _currentData.Source
-            };
+                LofFund = d.LofFund,
+                LofArbitrage = new LofArbitrage
+                {
+                    PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,
+                    PurchaseDate = d.LofArbitrage.PurchaseDate
+                },
+                LofArbitrageStrategy = new LofArbitrageStrategy
+                {
+                    PolicyType = d.LofArbitrageStrategy.PolicyType,
+                    SellTime = d.LofArbitrageStrategy.SellTime,
+                    SellStockPrice = d.LofArbitrageStrategy.SellStockPrice,
+                    TurnBack = d.LofArbitrageStrategy.TurnBack
+                }
+            }).ToList();
         }
     }
 }

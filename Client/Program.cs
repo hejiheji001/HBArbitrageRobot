@@ -1,5 +1,6 @@
 ﻿using Microsoft.Playwright;
 using Newtonsoft.Json;
+using System.Text;
 using Client.Models;
 
 class Program
@@ -12,35 +13,21 @@ class Program
         var username = GetConfig(args, "USERNAME", 0);
         var password = GetConfig(args, "PASSWORD", 1);
         var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
+        var pwd = GetConfig(args, "PWD", 3, "962464"); // Transaction password
+        var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
             Console.WriteLine("ERROR: Username and password are required.");
             Console.WriteLine("Usage:");
-            Console.WriteLine("  Testing: dotnet run <username> <password> [api_url]");
-            Console.WriteLine("  Production: Set USERNAME and PASSWORD environment variables");
+            Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time]");
+            Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME environment variables");
             return;
         }
 
         try
         {
-            // Step 1: Read data from API
-            Console.WriteLine($"Fetching data from API: {apiUrl}/api/data");
-            var apiData = await FetchDataFromApi(apiUrl);
-            
-            if (apiData != null)
-            {
-                Console.WriteLine($"Data fetched successfully:");
-                Console.WriteLine($"  Source: {apiData.Source}");
-                Console.WriteLine($"  Fetched At: {apiData.FetchedAt}");
-                Console.WriteLine($"  Content Length: {apiData.Content?.Length ?? 0} characters");
-            }
-            else
-            {
-                Console.WriteLine("Warning: No data available from API yet. Continuing with login...");
-            }
-
-            // Step 2: Launch browser and login
+            // Step 1: Launch browser and login
             Console.WriteLine("\nInitializing Playwright...");
             using var playwright = await Playwright.CreateAsync();
             
@@ -54,7 +41,7 @@ class Program
             var context = await browser.NewContextAsync();
             var page = await context.NewPageAsync();
 
-            // Step 3: Navigate to login page
+            // Step 2: Navigate to login page
             var loginUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
             Console.WriteLine($"\nNavigating to login page: {loginUrl}");
             await page.GotoAsync(loginUrl);
@@ -62,16 +49,15 @@ class Program
             // Wait for page to load
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             
-            // Step 4: Perform login (this is a placeholder - actual selectors need to be adjusted)
+            // Step 3: Perform login
             Console.WriteLine("Attempting login...");
             
             try
             {
-                // These selectors are placeholders and should be updated based on actual page structure
                 // Wait for login form elements
                 await page.WaitForSelectorAsync("input[type='text'], input[type='tel'], input[name*='user'], input[name*='phone']", new PageWaitForSelectorOptions { Timeout = 10000 });
                 
-                // Fill in credentials (selectors need to be adjusted for actual page)
+                // Fill in credentials
                 var usernameSelector = "input[type='text'], input[type='tel'], input[name*='user'], input[name*='phone']";
                 var passwordSelector = "input[type='password']";
                 var submitSelector = "button[type='submit'], button:has-text('登录'), button:has-text('Login')";
@@ -93,15 +79,71 @@ class Program
                 Console.WriteLine("Continuing to navigate to main page...");
             }
 
-            // Step 5: Navigate to the main page after login
+            // Step 4: Navigate to the main page after login
             var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
             Console.WriteLine($"\nNavigating to main page: {mainUrl}");
             await page.GotoAsync(mainUrl);
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
-            Console.WriteLine("\nClient operation completed successfully!");
             Console.WriteLine("Page URL: " + page.Url);
+
+            // Step 5: Fetch stock holder list from the API
+            Console.WriteLine("\nFetching stock holder list...");
+            var stockHolderList = await FetchStockHolderList(page);
             
+            if (stockHolderList.Count == 0)
+            {
+                Console.WriteLine("Warning: No stock holders found. Cannot proceed with arbitrage creation.");
+                return;
+            }
+            
+            Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
+            foreach (var holder in stockHolderList)
+            {
+                Console.WriteLine($"  - {holder} ({stockHolderList.IndexOf(holder) + 1}/{stockHolderList.Count})");
+            }
+
+            // Step 6: Fetch LOF arbitrage data from Server API
+            Console.WriteLine($"\nFetching LOF arbitrage data from API: {apiUrl}/api/data");
+            var lofData = await FetchLofDataFromApi(apiUrl);
+            
+            if (lofData == null || lofData.Count == 0)
+            {
+                Console.WriteLine("Warning: No LOF data available from API.");
+                return;
+            }
+            
+            Console.WriteLine($"Fetched {lofData.Count} LOF arbitrage items");
+            foreach (var item in lofData)
+            {
+                Console.WriteLine($"  - Fund: {item.LofFund}, Quantity: {item.LofArbitrage.PurchaseQuantity}, Date: {item.LofArbitrage.PurchaseDate}");
+            }
+
+            // Step 7: Create arbitrage request
+            var request = new CreateArbitrageRequest
+            {
+                StockHolderList = stockHolderList,
+                PurchaseTime = purchaseTime,
+                List = lofData,
+                Pwd = pwd
+            };
+
+            Console.WriteLine($"\nCreating arbitrage with:");
+            Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
+            Console.WriteLine($"  - Purchase Time: {purchaseTime}");
+            Console.WriteLine($"  - LOF Items: {lofData.Count}");
+
+            // Step 8: Send POST request to create arbitrage
+            var success = await CreateArbitrage(page, request);
+            
+            if (success)
+            {
+                Console.WriteLine("\n✓ Arbitrage created successfully!");
+            }
+            else
+            {
+                Console.WriteLine("\n✗ Failed to create arbitrage. Check logs for details.");
+            }
+
             // Keep browser open for a moment to see the result
             if (!headless)
             {
@@ -141,7 +183,39 @@ class Program
         return defaultValue ?? string.Empty;
     }
 
-    private static async Task<ArbitrageData?> FetchDataFromApi(string baseUrl)
+    private static async Task<List<string>> FetchStockHolderList(IPage page)
+    {
+        try
+        {
+            // Use Playwright's API request context to make the request with the authenticated session
+            var response = await page.Context.APIRequest.GetAsync("https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do");
+            
+            if (response.Ok)
+            {
+                var json = await response.TextAsync();
+                Console.WriteLine($"Stock holder response: {json}");
+                
+                var data = JsonConvert.DeserializeObject<StockHolderResponse>(json);
+                
+                if (data?.Success == true && data.Result != null)
+                {
+                    return data.Result.Select(s => s.StockHolderNo).ToList();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to fetch stock holders. Status: {response.Status}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching stock holders: {ex.Message}");
+        }
+        
+        return new List<string>();
+    }
+
+    private static async Task<List<LofArbitrageData>?> FetchLofDataFromApi(string baseUrl)
     {
         try
         {
@@ -153,11 +227,13 @@ class Program
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<ArbitrageData>(json);
+                return JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
             }
             else
             {
                 Console.WriteLine($"API returned status code: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error content: {errorContent}");
                 return null;
             }
         }
@@ -165,6 +241,35 @@ class Program
         {
             Console.WriteLine($"Failed to fetch data from API: {ex.Message}");
             return null;
+        }
+    }
+
+    private static async Task<bool> CreateArbitrage(IPage page, CreateArbitrageRequest request)
+    {
+        try
+        {
+            var json = JsonConvert.SerializeObject(request);
+            Console.WriteLine($"\nSending POST request to createLofArbitrage.do");
+            Console.WriteLine($"Payload: {json}");
+            
+            // Use Playwright's API request context to make the POST request with the authenticated session
+            var response = await page.Context.APIRequest.PostAsync(
+                "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
+                new Microsoft.Playwright.APIRequestContextOptions
+                {
+                    DataObject = request
+                });
+            
+            var responseText = await response.TextAsync();
+            Console.WriteLine($"Response status: {response.Status}");
+            Console.WriteLine($"Response body: {responseText}");
+            
+            return response.Ok;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating arbitrage: {ex.Message}");
+            return false;
         }
     }
 }

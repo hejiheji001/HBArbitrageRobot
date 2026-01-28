@@ -18,11 +18,11 @@ public class DataController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<ArbitrageData> GetData()
+    public ActionResult<List<LofArbitrageData>> GetData()
     {
-        var data = _dataStore.GetCurrentData();
+        var data = _dataStore.GetCurrentLofData();
 
-        if (data == null)
+        if (data == null || data.Count == 0)
         {
             _logger.LogWarning("No data available yet");
             return NotFound(new { message = "No data available yet. Data is fetched daily at 14:00 Shanghai time." });
