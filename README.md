@@ -230,9 +230,13 @@ docker push your-registry/hbarbitragerobot-client:latest
 ## Notes
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
-- The Client runs once and exits after completing its task
+- The Client runs once and exits after completing its task (not configured to restart automatically in Docker)
 - Login selectors in the Client may need adjustment based on the actual touker.com page structure
-- For production use, ensure proper security measures for credential management
+- For production use, ensure proper security measures for credential management:
+  - Never commit the `.env` file to version control
+  - Use Docker secrets, environment-specific config, or secret management services for production credentials
+  - Avoid passing credentials via command-line arguments in production (they appear in process lists)
+- The Server includes timezone fallback (UTC+8) if timezone data is not available in the container
 
 ## License
 

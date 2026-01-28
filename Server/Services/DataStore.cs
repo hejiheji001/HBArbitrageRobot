@@ -19,7 +19,15 @@ public class DataStore
     {
         lock (_lock)
         {
-            return _currentData;
+            // Return a copy to prevent external modifications
+            if (_currentData == null) return null;
+            
+            return new ArbitrageData
+            {
+                Content = _currentData.Content,
+                FetchedAt = _currentData.FetchedAt,
+                Source = _currentData.Source
+            };
         }
     }
 }

@@ -24,7 +24,6 @@ services:
       - HEADLESS=true
     depends_on:
       - server
-    restart: unless-stopped
     networks:
       - hb-network
 

@@ -39,7 +39,18 @@ public class DataFetchService : BackgroundService
             try
             {
                 await Task.Delay(delay, stoppingToken);
+                
+                // Fetch data immediately after delay
                 await FetchDataAsync(stoppingToken);
+                
+                // After fetching, wait until next day's 14:00
+                // Calculate delay to next day's 14:00 from current time
+                var afterFetchTime = GetShanghaiTime();
+                var nextTargetTime = new DateTime(afterFetchTime.Year, afterFetchTime.Month, afterFetchTime.Day, 14, 0, 0).AddDays(1);
+                var nextDelay = nextTargetTime - afterFetchTime;
+                
+                _logger.LogInformation("Next fetch scheduled at: {TargetTime} (in {Delay})", nextTargetTime, nextDelay);
+                await Task.Delay(nextDelay, stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -84,7 +95,15 @@ public class DataFetchService : BackgroundService
 
     private static DateTime GetShanghaiTime()
     {
-        var shanghaiTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai");
-        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, shanghaiTimeZone);
+        try
+        {
+            var shanghaiTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, shanghaiTimeZone);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Fallback: China is UTC+8
+            return DateTime.UtcNow.AddHours(8);
+        }
     }
 }

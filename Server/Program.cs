@@ -19,7 +19,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirection in development, not in Docker
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.MapControllers();
 
 app.Run();
