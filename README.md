@@ -262,6 +262,27 @@ docker push your-registry/hbarbitragerobot-server:latest
 docker push your-registry/hbarbitragerobot-client:latest
 ```
 
+## Testing
+
+For detailed testing instructions, see [TESTING.md](TESTING.md).
+
+Quick test commands:
+
+**Test Server API:**
+```bash
+# Start server
+cd Server && dotnet run
+
+# In another terminal, test the API
+curl http://localhost:5290/api/data
+```
+
+**Test Client:**
+```bash
+cd Client
+dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
+```
+
 ## Notes
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
