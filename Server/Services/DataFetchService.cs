@@ -87,7 +87,7 @@ public class DataFetchService : BackgroundService
                 var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
                 foreach (var item in lofData)
                 {
-                    if (item.LofArbitrage != null)
+                    if (item != null && item.LofArbitrage != null)
                     {
                         item.LofArbitrage.PurchaseDate = currentDate;
                     }
@@ -95,7 +95,7 @@ public class DataFetchService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to parse content as LOF data, creating default entry");
+                _logger.LogWarning(ex, "Failed to parse content as LOF data. Creating default entry.");
                 // If parsing fails, create a default entry with example data
                 lofData = new List<LofArbitrageData>
                 {

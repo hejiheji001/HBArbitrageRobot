@@ -83,7 +83,7 @@ The server will start at `http://localhost:5000` (or `https://localhost:5001`).
 cd Client
 dotnet run <username> <password> [api_url] [pwd] [purchase_time]
 # Example:
-# dotnet run myuser mypass http://localhost:5000 962464 14:15
+# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15
 ```
 
 Or use environment variables:
@@ -91,7 +91,7 @@ Or use environment variables:
 ```bash
 export USERNAME="your_username"
 export PASSWORD="your_password"
-export PWD="962464"
+export PWD="your_transaction_password"
 export PURCHASE_TIME="14:15"
 export API_URL="http://localhost:5000"
 dotnet run
@@ -106,7 +106,7 @@ Create a `.env` file in the project root:
 ```env
 USERNAME=your_username
 PASSWORD=your_password
-PWD=962464
+PWD=your_transaction_password
 PURCHASE_TIME=14:15
 ```
 
@@ -209,7 +209,7 @@ The client supports configuration via:
 2. **Environment Variables** (Production):
    - `USERNAME`: Login username (required)
    - `PASSWORD`: Login password (required)
-   - `PWD`: Transaction password for creating arbitrage (default: 962464)
+   - `PWD`: Transaction password for creating arbitrage (required)
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `HEADLESS`: Run browser in headless mode (default: true)

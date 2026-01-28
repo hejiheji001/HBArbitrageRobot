@@ -1,6 +1,5 @@
 ﻿using Microsoft.Playwright;
 using Newtonsoft.Json;
-using System.Text;
 using Client.Models;
 
 class Program
@@ -13,7 +12,7 @@ class Program
         var username = GetConfig(args, "USERNAME", 0);
         var password = GetConfig(args, "PASSWORD", 1);
         var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
-        var pwd = GetConfig(args, "PWD", 3, "962464"); // Transaction password
+        var pwd = GetConfig(args, "PWD", 3); // Transaction password (required, no default)
         var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
@@ -22,6 +21,13 @@ class Program
             Console.WriteLine("Usage:");
             Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time]");
             Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME environment variables");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(pwd))
+        {
+            Console.WriteLine("ERROR: Transaction password (PWD) is required.");
+            Console.WriteLine("  Set via command line argument or PWD environment variable");
             return;
         }
 
@@ -97,9 +103,9 @@ class Program
             }
             
             Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
-            foreach (var holder in stockHolderList)
+            for (int i = 0; i < stockHolderList.Count; i++)
             {
-                Console.WriteLine($"  - {holder} ({stockHolderList.IndexOf(holder) + 1}/{stockHolderList.Count})");
+                Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
             }
 
             // Step 6: Fetch LOF arbitrage data from Server API

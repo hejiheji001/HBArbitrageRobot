@@ -11,7 +11,23 @@ public class DataStore
     {
         lock (_lock)
         {
-            _currentLofData = data;
+            // Create a defensive copy when storing
+            _currentLofData = data.Select(d => new LofArbitrageData
+            {
+                LofFund = d.LofFund,
+                LofArbitrage = new LofArbitrage
+                {
+                    PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,
+                    PurchaseDate = d.LofArbitrage.PurchaseDate
+                },
+                LofArbitrageStrategy = new LofArbitrageStrategy
+                {
+                    PolicyType = d.LofArbitrageStrategy.PolicyType,
+                    SellTime = d.LofArbitrageStrategy.SellTime,
+                    SellStockPrice = d.LofArbitrageStrategy.SellStockPrice,
+                    TurnBack = d.LofArbitrageStrategy.TurnBack
+                }
+            }).ToList();
         }
     }
 

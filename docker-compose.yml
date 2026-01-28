@@ -20,7 +20,7 @@ services:
     environment:
       - USERNAME=${USERNAME}
       - PASSWORD=${PASSWORD}
-      - PWD=${PWD:-962464}
+      - PWD=${PWD}
       - PURCHASE_TIME=${PURCHASE_TIME:-14:15}
       - API_URL=http://server:8080
       - HEADLESS=true
