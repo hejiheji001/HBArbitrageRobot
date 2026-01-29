@@ -6,7 +6,7 @@ public class DataStore
 {
     private List<LofArbitrageData>? _currentLofData;
     private DateTime? _cacheDateTime;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public void UpdateLofData(List<LofArbitrageData> data, DateTime fetchDateTime)
     {
