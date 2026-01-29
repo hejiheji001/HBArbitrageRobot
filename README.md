@@ -322,8 +322,7 @@ The Client runs continuously and performs the following automated workflow in cy
 ### Arbitrage Cycle (repeats indefinitely)
 
 1. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
-   - Checks response headers for wait messages (`X-Wait-Message`)
-   - If server returns empty data with wait message, enters standby mode immediately
+   - If server returns empty data or 404 "Data fetch in progress", enters standby mode immediately
    - If data is available, proceeds with arbitrage operations
 2. **Login**: Authenticates to touker.com using provided credentials (only if LOF data is available)
 3. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
@@ -345,6 +344,7 @@ The Client runs continuously and performs the following automated workflow in cy
 6. **Standby Mode**: After completing arbitrage operations (or if no data available):
    - Calculates time until next 14:20 (Shanghai time)
    - If current time is past 14:20, waits until next day's 14:20
+   - Note: The client wakes at 14:20 to ensure server data (fetched at 14:00) is ready and give time for processing
    - Sleeps until target time
    - Wakes up and repeats the cycle
 

@@ -458,14 +458,24 @@ class Program
         // Target time is 14:20 today
         var targetTime = new DateTime(currentTime.Year, currentTime.Month, currentTime.Day, 14, 20, 0);
         
-        // If current time is already past 14:20, target next day's 14:20
-        if (currentTime >= targetTime)
+        // If current time is past 14:20, target next day's 14:20
+        // Use > instead of >= to allow proceeding if waking at exactly 14:20:00
+        if (currentTime > targetTime)
         {
             targetTime = targetTime.AddDays(1);
             Console.WriteLine($"Current time ({currentTime:HH:mm:ss}) is past today's 14:20. Will wait until tomorrow.");
         }
         
         var waitDuration = targetTime - currentTime;
+        
+        // Validate wait duration to prevent Task.Delay overflow
+        // Maximum safe duration is about 24.8 days (int.MaxValue milliseconds)
+        var maxSafeDuration = TimeSpan.FromDays(24);
+        if (waitDuration > maxSafeDuration || waitDuration < TimeSpan.Zero)
+        {
+            Console.WriteLine($"Warning: Calculated wait duration ({waitDuration}) is invalid. Using 1 hour fallback.");
+            waitDuration = TimeSpan.FromHours(1);
+        }
         
         Console.WriteLine($"Current Shanghai time: {currentTime:yyyy-MM-dd HH:mm:ss}");
         Console.WriteLine($"Next arbitrage check: {targetTime:yyyy-MM-dd HH:mm:ss}");
@@ -529,54 +539,51 @@ class Program
         return [];
     }
 
+    private static readonly HttpClient httpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(10)
+    };
+    
     private static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
     {
         try
         {
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(10);
-            
             var response = await httpClient.GetAsync($"{baseUrl}/api/data");
-            
-            // Check response headers for wait message
-            bool shouldWait = false;
-            if (response.Headers.TryGetValues("X-Wait-Message", out var waitMessages))
-            {
-                var waitMessage = waitMessages.FirstOrDefault();
-                if (!string.IsNullOrEmpty(waitMessage))
-                {
-                    Console.WriteLine($"Server wait message: {waitMessage}");
-                    shouldWait = true;
-                }
-            }
             
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
                 var data = JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
                 
-                // If data is empty or null, check if we should wait
-                if ((data == null || data.Count == 0) && shouldWait)
+                // If data is empty or null, consider it as a signal to wait
+                if (data == null || data.Count == 0)
                 {
+                    Console.WriteLine("Server returned empty data - entering standby mode");
                     return (null, true);
                 }
                 
                 return (data, false);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // 404 with "Data fetch in progress" message
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Server response: {errorContent}");
+                
+                // Check if it's the "fetch in progress" message
+                if (errorContent.Contains("Data fetch in progress", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (null, true);
+                }
+                
+                return (null, false);
             }
             else
             {
                 Console.WriteLine($"API returned status code: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error content: {errorContent}");
-                
-                // Check if error content suggests waiting
-                if (errorContent.Contains("wait", StringComparison.OrdinalIgnoreCase) || 
-                    errorContent.Contains("in progress", StringComparison.OrdinalIgnoreCase))
-                {
-                    return (null, true);
-                }
-                
-                return (null, shouldWait);
+                return (null, false);
             }
         }
         catch (Exception ex)
