@@ -11,9 +11,6 @@ builder.Services.AddHttpClient();
 // Add MemoryCache
 builder.Services.AddMemoryCache();
 
-// Add AutoMapper
-builder.Services.AddAutoMapper(typeof(Program).Assembly);
-
 // Register our services
 builder.Services.AddSingleton<DataStore>();
 builder.Services.AddSingleton<DataFetchService>();

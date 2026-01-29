@@ -3,10 +3,14 @@ using Server.Models;
 
 namespace Server.Services;
 
+/// <summary>
+/// Stores LOF arbitrage data with associated fetch timestamp
+/// </summary>
+public record CachedLofData(List<LofArbitrageData> Data, DateTime FetchDateTime);
+
 public class DataStore(IMemoryCache cache)
 {
-    private const string DATA_CACHE_KEY = "LofArbitrageData";
-    private const string DATETIME_CACHE_KEY = "LofArbitrageFetchDateTime";
+    private const string CacheKey = "LofArbitrageDataWithTimestamp";
 
     public void UpdateLofData(List<LofArbitrageData> data, DateTime fetchDateTime)
     {
@@ -20,13 +24,9 @@ public class DataStore(IMemoryCache cache)
             PurchaseDate = d.PurchaseDate
         }).ToList();
 
-        // Store data in cache with no expiration (manual management)
-        cache.Set(DATA_CACHE_KEY, dataCopy, new MemoryCacheEntryOptions
-        {
-            Priority = CacheItemPriority.NeverRemove
-        });
-        
-        cache.Set(DATETIME_CACHE_KEY, fetchDateTime, new MemoryCacheEntryOptions
+        // Store both data and timestamp atomically in a single cache entry
+        var cachedData = new CachedLofData(dataCopy, fetchDateTime);
+        cache.Set(CacheKey, cachedData, new MemoryCacheEntryOptions
         {
             Priority = CacheItemPriority.NeverRemove
         });
@@ -35,10 +35,10 @@ public class DataStore(IMemoryCache cache)
     public List<LofArbitrageData>? GetCurrentLofData()
     {
         // Get data from cache and return a defensive copy
-        if (!cache.TryGetValue<List<LofArbitrageData>>(DATA_CACHE_KEY, out var cachedData) || cachedData == null)
+        if (!cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) || cachedData == null)
             return null;
 
-        return cachedData.Select(d => new LofArbitrageData
+        return cachedData.Data.Select(d => new LofArbitrageData
         {
             LofFund = d.LofFund,
             Name = d.Name,
@@ -50,19 +50,18 @@ public class DataStore(IMemoryCache cache)
 
     public DateTime? GetCacheDateTime()
     {
-        return cache.TryGetValue<DateTime>(DATETIME_CACHE_KEY, out var cacheDateTime) 
-            ? cacheDateTime 
+        return cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) && cachedData != null
+            ? cachedData.FetchDateTime
             : null;
     }
 
     public bool IsCacheValidForDate(DateTime currentDate)
     {
-        if (!cache.TryGetValue<DateTime>(DATETIME_CACHE_KEY, out var cacheDateTime))
+        if (!cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) || cachedData == null)
             return false;
 
-        if (!cache.TryGetValue<List<LofArbitrageData>>(DATA_CACHE_KEY, out var cachedData) || cachedData == null)
-            return false;
-
+        var cacheDateTime = cachedData.FetchDateTime;
+        
         // Check if cache is from the same day (year, month, day)
         return cacheDateTime.Year == currentDate.Year &&
                cacheDateTime.Month == currentDate.Month &&
