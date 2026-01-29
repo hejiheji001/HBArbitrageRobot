@@ -39,7 +39,8 @@ class Program
                 Headless = headless
             });
 
-            var context = await browser.NewContextAsync();
+            // Use mobile device emulation since the URLs are mobile pages
+            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
             var page = await context.NewPageAsync();
 
             // Step 2: Navigate to login page
