@@ -85,13 +85,29 @@ dotnet run
 
 The server will start at `http://localhost:5000` (or `https://localhost:5001`).
 
-### 5. Run the Client (Testing Mode)
+### 5. Run the Client (Testing/Development Mode)
+
+**Development Mode (Browser UI Visible):**
+
+To run with the browser UI visible for debugging, set the environment to Development:
+
+```bash
+cd Client
+export DOTNET_ENVIRONMENT=Development
+# Or: export ASPNETCORE_ENVIRONMENT=Development
+
+dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
+# Example:
+# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
+```
+
+**Production Mode (Headless):**
+
+For headless execution (default in production):
 
 ```bash
 cd Client
 dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
-# Example:
-# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
 ```
 
 Or use environment variables:
@@ -103,6 +119,8 @@ export PWD="your_transaction_password"
 export PURCHASE_TIME="14:15"
 export API_URL="http://localhost:5000"
 export MAX_INVESTMENT="1000"
+# Optional: Show browser UI (alternative to DOTNET_ENVIRONMENT)
+# export HEADLESS=false
 dotnet run
 ```
 
@@ -384,11 +402,16 @@ The client supports configuration via:
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
-   - `HEADLESS`: Run browser in headless mode (default: true)
+   - `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT`: Set to `Development` to show browser UI by default
+   - `HEADLESS`: Run browser in headless mode 
+     - When `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` is `Development`: defaults to `false` (UI visible)
+     - In production: defaults to `true` (headless)
+     - Can be explicitly set to `true` or `false` to override default behavior
    - `PLAYWRIGHT_BROWSERS_PATH`: Controls where Playwright browsers are installed (automatically set to `0` by the application if not configured)
      - Set to `0` to install browsers relative to the executable (recommended)
      - Set to a custom path to use a specific directory
      - If not set, the application automatically sets it to `0` to avoid using the system AppData directory
+
 
 ## Publishing Docker Images
 
