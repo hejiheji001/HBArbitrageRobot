@@ -26,7 +26,30 @@ This guide explains how to test both the Server and Client components of the HBA
          Now listening on: http://localhost:5290
    ```
 
-3. **Test the API endpoint:**
+3. **Access the Scalar API Documentation UI:**
+   
+   In development mode, the Scalar API documentation is automatically available.
+   Open your web browser and navigate to:
+   ```
+   http://localhost:5290/scalar/v1
+   ```
+   
+   The Scalar UI provides:
+   - Interactive API documentation with a modern interface
+   - Ability to test API endpoints directly from the browser
+   - View all request/response schemas
+   - Example requests and responses
+   - Try out the API with different parameters
+   
+   You can also access the raw OpenAPI specification at:
+   ```
+   http://localhost:5290/openapi/v1.json
+   ```
+   
+   **Note:** The actual port number may vary. Check the server startup logs for the exact URL.
+   Look for a line like: `Now listening on: http://localhost:5290`
+
+4. **Test the API endpoint:**
    
    In a new terminal, test the `/api/data` endpoint:
    
@@ -129,7 +152,20 @@ This guide explains how to test both the Server and Client components of the HBA
    docker run -p 8080:8080 hbarbitrage-server
    ```
 
-3. **Test the API:**
+3. **Access the Scalar API Documentation:**
+   
+   For Docker deployments, API documentation is disabled by default for security.
+   To enable it, add the environment variable:
+   ```bash
+   docker run -p 8080:8080 -e EnableApiDocs=true hbarbitrage-server
+   ```
+   
+   Then open your browser and navigate to:
+   ```
+   http://localhost:8080/scalar/v1
+   ```
+
+4. **Test the API:**
    ```bash
    curl http://localhost:8080/api/data
    ```
@@ -146,17 +182,40 @@ This guide explains how to test both the Server and Client components of the HBA
    docker-compose up -d server
    ```
 
-2. **Test the API:**
+2. **Access the Scalar API Documentation:**
+   
+   For Docker deployments, API documentation is disabled by default for security.
+   To enable it, update your docker-compose.yml or .env file:
+   
+   **Option 1: Using environment variable in docker-compose.yml**
+   ```yaml
+   services:
+     server:
+       environment:
+         - EnableApiDocs=true
+   ```
+   
+   **Option 2: Add to .env file**
+   ```
+   EnableApiDocs=true
+   ```
+   
+   Then restart the service and open your browser:
+   ```
+   http://localhost:8080/scalar/v1
+   ```
+
+3. **Test the API:**
    ```bash
    curl http://localhost:8080/api/data
    ```
 
-3. **View logs:**
+4. **View logs:**
    ```bash
    docker-compose logs -f server
    ```
 
-4. **Stop the service:**
+5. **Stop the service:**
    ```bash
    docker-compose down
    ```

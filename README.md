@@ -149,6 +149,57 @@ docker-compose logs -f client
 docker-compose down
 ```
 
+## API Documentation
+
+The Server provides an interactive API documentation interface powered by **Scalar**.
+
+### Accessing API Documentation
+
+**Development Environment:**
+API documentation is automatically enabled when running in development mode:
+
+```bash
+cd Server
+dotnet run
+```
+
+The server will display the listening URL in the startup logs, typically:
+```
+Now listening on: http://localhost:5290
+```
+
+Then access:
+- **Scalar API Reference UI**: `http://localhost:5290/scalar/v1` (replace port if different)
+  - Beautiful, modern interactive API documentation
+  - Test API endpoints directly from the browser
+  - View request/response schemas
+  - Example requests and responses
+
+- **OpenAPI Specification**: `http://localhost:5290/openapi/v1.json`
+  - Raw OpenAPI 3.1 specification in JSON format
+  - Can be imported into tools like Postman, Insomnia, etc.
+
+**Note:** The actual port number may vary. Always check the server startup logs for the exact URL.
+
+**Production Environment:**
+For security reasons, API documentation is disabled by default in production. To enable it, set the `EnableApiDocs` environment variable:
+
+```bash
+# Docker
+docker run -p 8080:8080 -e EnableApiDocs=true hbarbitrage-server
+
+# Docker Compose (add to docker-compose.yml)
+services:
+  server:
+    environment:
+      - EnableApiDocs=true
+
+# Or in .env file
+EnableApiDocs=true
+```
+
+Then access at `http://localhost:8080/scalar/v1` (Docker) or the configured port.
+
 ## API Endpoints
 
 ### GET /api/data
