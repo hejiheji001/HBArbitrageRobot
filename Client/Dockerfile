@@ -44,5 +44,8 @@ RUN pwsh /app/playwright.ps1 install-deps chromium \
 # Set environment variables
 ENV HEADLESS=true
 ENV API_URL=http://server:8080
+# Set Playwright to install browsers in the running directory instead of AppData
+# Setting PLAYWRIGHT_BROWSERS_PATH=0 uses a path relative to the executable
+ENV PLAYWRIGHT_BROWSERS_PATH=0
 
 ENTRYPOINT ["dotnet", "Client.dll"]
