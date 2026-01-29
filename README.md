@@ -8,7 +8,7 @@ A .NET 10 application with Server and Client components for automated arbitrage 
   - RESTful API to expose LOF arbitrage data
   - Scheduled data fetching from jisilu.cn every day at 14:00 Shanghai time
   - Fetches data from 4 LOF endpoints (index LOF, stock LOF, and QDII)
-  - Filters funds with discount_rt > 10% and redeem_status = "开放赎回"
+  - Filters funds with discount_rt > 10% and apply_status != "暂停申购"
   - Automatically sets purchase date to current date
   - Returns array of LOF fund arbitrage configurations
   - Built with ASP.NET Core Web API
@@ -224,7 +224,7 @@ The server automatically fetches data from jisilu.cn at 14:00 Shanghai time dail
 
 The server filters funds that meet both criteria:
 - discount_rt > 10%
-- redeem_status = "开放赎回" (Open for redemption)
+- apply_status != "暂停申购" (not suspended for purchase)
 
 Each filtered fund is added to the arbitrage configuration with:
 - Purchase quantity: 1

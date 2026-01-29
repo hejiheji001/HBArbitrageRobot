@@ -80,7 +80,7 @@ This guide explains how to test both the Server and Client components of the HBA
    ]
    ```
    
-   Note: The actual data will vary based on the current LOF funds from jisilu.cn that meet the filtering criteria (discount_rt > 10% and redeem_status = "开放赎回").
+   Note: The actual data will vary based on the current LOF funds from jisilu.cn that meet the filtering criteria (discount_rt > 10% and apply_status != "暂停申购").
 
 ### Method 2: Testing with Docker
 

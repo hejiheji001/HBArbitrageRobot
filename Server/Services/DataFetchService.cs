@@ -10,7 +10,7 @@ public class DataFetchService : BackgroundService
     private readonly SemaphoreSlim _fetchSemaphore = new(1, 1);
     
     // Constants for filtering criteria
-    private const string REDEEM_STATUS_OPEN = "开放赎回";
+    private const string APPLY_STATUS_SUSPENDED = "暂停申购";
     private const decimal MIN_DISCOUNT_RATE = 10m;
 
     public DataFetchService(
@@ -177,7 +177,7 @@ public class DataFetchService : BackgroundService
                 }
             }
 
-            // Filter funds: discount_rt > 10% AND redeem_status = "开放赎回"
+            // Filter funds: discount_rt > 10% AND apply_status != "暂停申购"
             var filteredFunds = allFunds.Values.Where(fund =>
             {
                 // Parse discount_rt (e.g., "41.74%" -> 41.74)
@@ -195,7 +195,7 @@ public class DataFetchService : BackgroundService
                 }
 
                 var meetsDiscountCriteria = discountValue > MIN_DISCOUNT_RATE;
-                var meetsRedeemCriteria = fund.RedeemStatus == REDEEM_STATUS_OPEN;
+                var meetsApplyCriteria = fund.ApplyStatus != APPLY_STATUS_SUSPENDED;
 
                 if (!meetsDiscountCriteria)
                 {
@@ -203,24 +203,24 @@ public class DataFetchService : BackgroundService
                         fund.FundId, fund.FundNm, discountValue, MIN_DISCOUNT_RATE);
                 }
 
-                if (!meetsRedeemCriteria)
+                if (!meetsApplyCriteria)
                 {
-                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: redeem_status '{Status}' != '{ExpectedStatus}'", 
-                        fund.FundId, fund.FundNm, fund.RedeemStatus, REDEEM_STATUS_OPEN);
+                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: apply_status '{Status}' == '{SuspendedStatus}'", 
+                        fund.FundId, fund.FundNm, fund.ApplyStatus, APPLY_STATUS_SUSPENDED);
                 }
 
-                // Check if discount_rt > 10% AND redeem_status = "开放赎回"
-                var result = meetsDiscountCriteria && meetsRedeemCriteria;
+                // Check if discount_rt > 10% AND apply_status != "暂停申购"
+                var result = meetsDiscountCriteria && meetsApplyCriteria;
                 if (result)
                 {
-                    _logger.LogInformation("Fund {FundId} ({FundNm}) ACCEPTED: discount_rt={Discount}%, redeem_status='{Status}'", 
-                        fund.FundId, fund.FundNm, discountValue, fund.RedeemStatus);
+                    _logger.LogInformation("Fund {FundId} ({FundNm}) ACCEPTED: discount_rt={Discount}%, apply_status='{Status}'", 
+                        fund.FundId, fund.FundNm, discountValue, fund.ApplyStatus);
                 }
                 return result;
             }).ToList();
 
-            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > {MinDiscount}% and redeem_status = '{ExpectedStatus}')", 
-                allFunds.Count, filteredFunds.Count, MIN_DISCOUNT_RATE, REDEEM_STATUS_OPEN);
+            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > {MinDiscount}% and apply_status != '{SuspendedStatus}')", 
+                allFunds.Count, filteredFunds.Count, MIN_DISCOUNT_RATE, APPLY_STATUS_SUSPENDED);
 
             // Convert to LofArbitrageData format
             var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");

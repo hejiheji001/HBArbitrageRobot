@@ -43,6 +43,9 @@ public class JisiluCell
     [JsonPropertyName("redeem_status")]
     public string RedeemStatus { get; set; } = string.Empty;
 
+    [JsonPropertyName("apply_status")]
+    public string ApplyStatus { get; set; } = string.Empty;
+
     [JsonPropertyName("price")]
     public string Price { get; set; } = string.Empty;
 
