@@ -307,23 +307,25 @@ class Program
             return 0;
         }
 
-        // Remove all non-digit characters and parse
-        // Examples: "限10" -> 10, "限100" -> 100, "开放申购" -> 0
-        var digits = new string(applyStatus.Where(char.IsDigit).ToArray());
-        
-        if (string.IsNullOrEmpty(digits))
-        {
-            // For statuses like "开放申购" (open for subscription) with no numeric limit
-            // We can interpret this as unlimited, but for practical purposes, return 0
-            // or a default value
-            return 0;
-        }
-
-        if (decimal.TryParse(digits, out var result))
+        // Use regex to extract the first number after "限" character
+        // Examples: "限10" → 10, "限100" → 100
+        var match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"限(\d+)");
+        if (match.Success && decimal.TryParse(match.Groups[1].Value, out var result))
         {
             return result;
         }
 
+        // If no "限" pattern found, try to extract any digits as fallback
+        var digits = string.Concat(applyStatus.Where(char.IsDigit));
+        
+        if (!string.IsNullOrEmpty(digits) && digits.Length <= 10 && decimal.TryParse(digits, out var fallbackResult))
+        {
+            return fallbackResult;
+        }
+
+        // For statuses like "开放申购" (open for subscription) with no numeric limit
+        // Return 0 to indicate no defined limit for calculation purposes
+        // Note: In business logic, this may mean "unlimited" but is treated as 0 for investment calculation
         return 0;
     }
 }
