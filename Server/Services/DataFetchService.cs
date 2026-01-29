@@ -131,17 +131,45 @@ public class DataFetchService : BackgroundService
             {
                 // Parse discount_rt (e.g., "41.74%" -> 41.74)
                 if (string.IsNullOrEmpty(fund.DiscountRt) || fund.DiscountRt == "-")
+                {
+                    _logger.LogDebug("Fund {FundId} skipped: discount_rt is empty or '-'", fund.FundId);
                     return false;
+                }
 
                 var discountStr = fund.DiscountRt.Replace("%", "").Trim();
                 if (!decimal.TryParse(discountStr, out var discountValue))
+                {
+                    _logger.LogDebug("Fund {FundId} skipped: cannot parse discount_rt '{DiscountRt}'", fund.FundId, fund.DiscountRt);
                     return false;
+                }
+
+                var meetsDiscountCriteria = discountValue > 10m;
+                var meetsRedeemCriteria = fund.RedeemStatus == "开放赎回";
+
+                if (!meetsDiscountCriteria)
+                {
+                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: discount_rt {Discount}% <= 10%", 
+                        fund.FundId, fund.FundNm, discountValue);
+                }
+
+                if (!meetsRedeemCriteria)
+                {
+                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: redeem_status '{Status}' != '开放赎回'", 
+                        fund.FundId, fund.FundNm, fund.RedeemStatus);
+                }
 
                 // Check if discount_rt > 10% AND redeem_status = "开放赎回"
-                return discountValue > 10m && fund.RedeemStatus == "开放赎回";
+                var result = meetsDiscountCriteria && meetsRedeemCriteria;
+                if (result)
+                {
+                    _logger.LogInformation("Fund {FundId} ({FundNm}) ACCEPTED: discount_rt={Discount}%, redeem_status='{Status}'", 
+                        fund.FundId, fund.FundNm, discountValue, fund.RedeemStatus);
+                }
+                return result;
             }).ToList();
 
-            _logger.LogInformation("Filtered {Count} funds with discount_rt > 10% and redeem_status = '开放赎回'", filteredFunds.Count);
+            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > 10% and redeem_status = '开放赎回')", 
+                allFunds.Count, filteredFunds.Count);
 
             // Convert to LofArbitrageData format
             var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
@@ -162,8 +190,17 @@ public class DataFetchService : BackgroundService
                 }
             }).ToList();
 
+            // Update data store even if the list is empty (to indicate fetch completed)
             _dataStore.UpdateLofData(lofData);
-            _logger.LogInformation("Data fetched successfully at {Time}, {Count} items stored", GetShanghaiTime(), lofData.Count);
+            
+            if (lofData.Count == 0)
+            {
+                _logger.LogWarning("No funds matched the filtering criteria. Empty list stored.");
+            }
+            else
+            {
+                _logger.LogInformation("Data fetched successfully at {Time}, {Count} items stored", GetShanghaiTime(), lofData.Count);
+            }
         }
         catch (Exception ex)
         {
