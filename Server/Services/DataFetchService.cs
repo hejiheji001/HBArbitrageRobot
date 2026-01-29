@@ -15,9 +15,8 @@ public class DataFetchService : BackgroundService
     private const decimal MIN_DISCOUNT_RATE = 10m;
     private const decimal UNLIMITED_AMOUNT = 10000m;
     
-    // Regex patterns for parsing ApplyStatus
+    // Regex pattern for parsing ApplyStatus (e.g., "限10", "限1万", "限1千")
     private static readonly Regex ApplyStatusWithUnitRegex = new(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled);
-    private static readonly Regex ApplyStatusNumberRegex = new(@"(\d+(?:\.\d+)?)", RegexOptions.Compiled);
 
     public DataFetchService(
         ILogger<DataFetchService> logger,
@@ -281,7 +280,8 @@ public class DataFetchService : BackgroundService
 
         // Handle "开放申购" (open for subscription) - means unlimited
         // Per requirements: set to 10000 for unlimited status
-        if (applyStatus.Contains("开放"))
+        // Check for exact match or starts with "开放" to avoid false positives
+        if (applyStatus == "开放申购" || applyStatus.StartsWith("开放"))
         {
             return UNLIMITED_AMOUNT;
         }
@@ -294,7 +294,7 @@ public class DataFetchService : BackgroundService
             if (match.Success)
             {
                 var numberStr = match.Groups[1].Value;
-                var unit = match.Groups[2].Value;
+                var unit = match.Groups[2].Value; // Empty string when no unit is present
                 
                 if (decimal.TryParse(numberStr, out var number))
                 {
@@ -309,26 +309,23 @@ public class DataFetchService : BackgroundService
                     }
                     else
                     {
-                        return number; // Just the number (e.g., "限10" = 10 yuan)
+                        // No unit or empty string means the number is in yuan (e.g., "限10" = 10 yuan)
+                        return number;
                     }
                 }
             }
-
-            // Fallback: try to extract first number
-            match = ApplyStatusNumberRegex.Match(applyStatus);
-            if (match.Success && decimal.TryParse(match.Groups[1].Value, out var fallback))
-            {
-                return fallback;
-            }
+            
+            // If primary pattern doesn't match, return unlimited amount
+            // Do not use fallback regex as it may match unrelated numbers
         }
         catch (Exception ex)
         {
-            // Log parsing failures for troubleshooting
-            _logger.LogDebug(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
+            // Log parsing failures at warning level for visibility
+            _logger.LogWarning(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
                 applyStatus, fundId, UNLIMITED_AMOUNT);
         }
 
-        // Default to 10000 for unlimited/unknown cases
+        // Default to 10000 for unlimited/unknown cases per requirements
         return UNLIMITED_AMOUNT;
     }
 }

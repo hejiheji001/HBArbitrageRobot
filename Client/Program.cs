@@ -131,7 +131,7 @@ class Program
             
             Console.WriteLine($"Fetched {lofData.Count} LOF arbitrage items");
             
-            // Calculate total investment based on amount field
+            // Calculate total investment based on Amount field
             decimal totalInvestment = 0;
             
             Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
