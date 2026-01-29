@@ -8,6 +8,10 @@ namespace Server.Controllers;
 [Route("api/[controller]")]
 public class DataController(DataStore dataStore, ILogger<DataController> logger, DataFetchService dataFetchService) : ControllerBase
 {
+    /// <summary>
+    /// Get LOF arbitrage data with optional client type filtering
+    /// </summary>
+    /// <param name="from">Optional client type. When set to 'bot', applies time-based access control (14:15 Shanghai time)</param>
     [HttpGet]
     public async Task<ActionResult<LofArbitrageResponse>> GetData([FromQuery] string? from, CancellationToken cancellationToken)
     {
@@ -35,15 +39,20 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
                 });
             }
             
-            // After 14:15, ensure cache is latest (from current date)
-            // If cache is not from today, trigger a fetch to update it
+            // After 14:15, attempt to update cache if not from current date
             if (!dataStore.IsCacheValidForDate(currentShanghaiTime))
             {
-                logger.LogInformation("Request from bot after 14:15. Cache is not from today. Fetching fresh data...");
+                logger.LogInformation("Request from bot after 14:15. Cache is not from today. Attempting to fetch fresh data...");
                 
                 try
                 {
                     await dataFetchService.TriggerManualFetchAsync(cancellationToken);
+                    
+                    // Verify the cache was updated successfully
+                    if (!dataStore.IsCacheValidForDate(currentShanghaiTime))
+                    {
+                        logger.LogWarning("Cache update did not result in current date data. May still be fetching or failed.");
+                    }
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -55,9 +64,18 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
                 }
             }
             
-            // Return the current cache data (which should now be latest)
+            // Return the current cache data
             var botData = dataStore.GetCurrentLofData();
             var botFetchTime = dataStore.GetCacheDateTime();
+            
+            // If no data available, return 404 similar to non-bot behavior
+            if (botData == null || botData.Count == 0)
+            {
+                if (botFetchTime == null)
+                {
+                    return NotFound(new { message = "No data available. Data is fetched daily at 14:00 Shanghai time." });
+                }
+            }
             
             logger.LogInformation("Returning data to bot. FetchTime: {FetchTime}, DataCount: {Count}", 
                 botFetchTime, botData?.Count ?? 0);
