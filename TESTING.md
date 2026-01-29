@@ -363,6 +363,8 @@ cd Client
 pwsh bin/Debug/net10.0/playwright.ps1 install chromium
 ```
 
+**Note:** Browsers are installed in the application's running directory (not in AppData) due to the `PLAYWRIGHT_BROWSERS_PATH=0` environment variable. This is set automatically by the application if not already configured.
+
 **API connection refused:**
 - Verify Server is running
 - Check the API_URL parameter matches the Server's listening port

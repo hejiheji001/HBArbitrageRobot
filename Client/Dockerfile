@@ -21,6 +21,11 @@ WORKDIR /app
 
 COPY --from=publish /app/publish .
 
+# Set Playwright to install browsers in the running directory instead of AppData
+# Setting PLAYWRIGHT_BROWSERS_PATH=0 uses a path relative to the executable
+# This must be set BEFORE installing browsers to ensure consistency
+ENV PLAYWRIGHT_BROWSERS_PATH=0
+
 # Install Playwright dependencies using official Playwright installation
 # First install PowerShell and required tools
 RUN apt-get update && apt-get install -y \

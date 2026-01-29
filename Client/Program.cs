@@ -28,6 +28,15 @@ class Program
 
         try
         {
+            // Set Playwright to use running directory for browser installation if not already set
+            // This prevents the default AppData location from being used
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
+            {
+                // Setting to "0" makes Playwright use a path relative to the executable
+                Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
+                Console.WriteLine("Set PLAYWRIGHT_BROWSERS_PATH=0 (using running directory for browsers)");
+            }
+            
             // Step 1: Launch browser and login
             Console.WriteLine("\nInitializing Playwright...");
             

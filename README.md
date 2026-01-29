@@ -30,6 +30,12 @@ A .NET 10 application with Server and Client components for automated arbitrage 
 - Docker and Docker Compose (for containerized deployment)
 - PowerShell (for Playwright browser installation)
 
+**Note on Playwright Browser Installation:**
+- By default, Playwright browsers are installed in the application's running directory (not in the system AppData folder)
+- This is controlled by the `PLAYWRIGHT_BROWSERS_PATH=0` environment variable
+- The `0` value tells Playwright to use a path relative to the executable
+- This makes the application more portable and avoids polluting the user's AppData directory
+
 ## Project Structure
 
 ```
@@ -379,6 +385,10 @@ The client supports configuration via:
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
    - `HEADLESS`: Run browser in headless mode (default: true)
+   - `PLAYWRIGHT_BROWSERS_PATH`: Controls where Playwright browsers are installed (automatically set to `0` by the application if not configured)
+     - Set to `0` to install browsers relative to the executable (recommended)
+     - Set to a custom path to use a specific directory
+     - If not set, the application automatically sets it to `0` to avoid using the system AppData directory
 
 ## Publishing Docker Images
 
