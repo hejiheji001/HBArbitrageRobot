@@ -3,6 +3,7 @@ namespace Server.Models;
 public class LofArbitrageData
 {
     public string LofFund { get; set; } = string.Empty;
+    public string ApplyStatus { get; set; } = string.Empty;
     public LofArbitrage LofArbitrage { get; set; } = new();
     public LofArbitrageStrategy LofArbitrageStrategy { get; set; } = new();
 }
