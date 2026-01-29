@@ -1,4 +1,5 @@
 using Server.Models;
+using System.Text.RegularExpressions;
 
 namespace Server.Services;
 
@@ -12,6 +13,11 @@ public class DataFetchService : BackgroundService
     // Constants for filtering criteria
     private const string APPLY_STATUS_SUSPENDED = "暂停申购";
     private const decimal MIN_DISCOUNT_RATE = 10m;
+    private const decimal UNLIMITED_AMOUNT = 10000m;
+    
+    // Regex patterns for parsing ApplyStatus
+    private static readonly Regex ApplyStatusWithUnitRegex = new(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled);
+    private static readonly Regex ApplyStatusNumberRegex = new(@"(\d+(?:\.\d+)?)", RegexOptions.Compiled);
 
     public DataFetchService(
         ILogger<DataFetchService> logger,
@@ -230,7 +236,7 @@ public class DataFetchService : BackgroundService
                 LofFund = fund.FundId,
                 Name = fund.FundNm,
                 ApplyStatus = fund.ApplyStatus,
-                Amount = ConvertApplyStatusToAmount(fund.ApplyStatus),
+                Amount = ConvertApplyStatusToAmount(fund.ApplyStatus, fund.FundId),
                 PurchaseDate = currentDate
             }).ToList();
 
@@ -266,23 +272,24 @@ public class DataFetchService : BackgroundService
         }
     }
 
-    private static decimal ConvertApplyStatusToAmount(string applyStatus)
+    private decimal ConvertApplyStatusToAmount(string applyStatus, string fundId)
     {
         if (string.IsNullOrEmpty(applyStatus))
         {
-            return 10000m;
+            return UNLIMITED_AMOUNT;
         }
 
         // Handle "开放申购" (open for subscription) - means unlimited
+        // Per requirements: set to 10000 for unlimited status
         if (applyStatus.Contains("开放"))
         {
-            return 10000m;
+            return UNLIMITED_AMOUNT;
         }
 
         try
         {
             // Try to match patterns like "限10", "限1万", "限1千"
-            var match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"限(\d+(?:\.\d+)?)(万|千)?");
+            var match = ApplyStatusWithUnitRegex.Match(applyStatus);
             
             if (match.Success)
             {
@@ -308,18 +315,20 @@ public class DataFetchService : BackgroundService
             }
 
             // Fallback: try to extract first number
-            match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"(\d+(?:\.\d+)?)");
+            match = ApplyStatusNumberRegex.Match(applyStatus);
             if (match.Success && decimal.TryParse(match.Groups[1].Value, out var fallback))
             {
                 return fallback;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // If parsing fails, return 10000 (unlimited)
+            // Log parsing failures for troubleshooting
+            _logger.LogDebug(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
+                applyStatus, fundId, UNLIMITED_AMOUNT);
         }
 
         // Default to 10000 for unlimited/unknown cases
-        return 10000m;
+        return UNLIMITED_AMOUNT;
     }
 }
