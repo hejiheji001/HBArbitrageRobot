@@ -68,15 +68,6 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
             var botData = dataStore.GetCurrentLofData();
             var botFetchTime = dataStore.GetCacheDateTime();
             
-            // If no data available, return 404 similar to non-bot behavior
-            if (botData == null || botData.Count == 0)
-            {
-                if (botFetchTime == null)
-                {
-                    return NotFound(new { message = "No data available. Data is fetched daily at 14:00 Shanghai time." });
-                }
-            }
-            
             logger.LogInformation("Returning data to bot. FetchTime: {FetchTime}, DataCount: {Count}", 
                 botFetchTime, botData?.Count ?? 0);
             
