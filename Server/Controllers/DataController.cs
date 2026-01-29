@@ -34,18 +34,23 @@ public class DataController : ControllerBase
     }
 
     [HttpPost("fetch")]
-    public async Task<IActionResult> TriggerFetch()
+    public async Task<IActionResult> TriggerFetch(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Manual fetch triggered");
         try
         {
-            await _dataFetchService.FetchDataInternalAsync(CancellationToken.None);
+            await _dataFetchService.TriggerManualFetchAsync(cancellationToken);
             return Ok(new { message = "Data fetch completed successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Manual fetch rejected: {Message}", ex.Message);
+            return Conflict(new { message = ex.Message });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Manual fetch failed");
-            return StatusCode(500, new { message = "Data fetch failed", error = ex.Message });
+            return StatusCode(500, new { message = "Data fetch failed. Please try again later." });
         }
     }
 }

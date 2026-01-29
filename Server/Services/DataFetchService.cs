@@ -6,7 +6,12 @@ public class DataFetchService : BackgroundService
 {
     private readonly ILogger<DataFetchService> _logger;
     private readonly DataStore _dataStore;
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly SemaphoreSlim _fetchSemaphore = new(1, 1);
+    
+    // Constants for filtering criteria
+    private const string REDEEM_STATUS_OPEN = "开放赎回";
+    private const decimal MIN_DISCOUNT_RATE = 10m;
 
     public DataFetchService(
         ILogger<DataFetchService> logger,
@@ -15,13 +20,7 @@ public class DataFetchService : BackgroundService
     {
         _logger = logger;
         _dataStore = dataStore;
-        _httpClient = httpClientFactory.CreateClient();
-        
-        // Set user agent and headers to mimic a browser request
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        _httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-        _httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        _httpClientFactory = httpClientFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -74,10 +73,42 @@ public class DataFetchService : BackgroundService
 
     private async Task FetchDataAsync(CancellationToken cancellationToken)
     {
-        await FetchDataInternalAsync(cancellationToken);
+        // Use semaphore to ensure only one fetch operation runs at a time
+        if (!await _fetchSemaphore.WaitAsync(0, cancellationToken))
+        {
+            _logger.LogWarning("Fetch already in progress, skipping this request");
+            return;
+        }
+
+        try
+        {
+            await FetchDataInternalAsync(cancellationToken);
+        }
+        finally
+        {
+            _fetchSemaphore.Release();
+        }
     }
 
-    public async Task FetchDataInternalAsync(CancellationToken cancellationToken)
+    public async Task TriggerManualFetchAsync(CancellationToken cancellationToken)
+    {
+        // Use semaphore to ensure only one fetch operation runs at a time
+        if (!await _fetchSemaphore.WaitAsync(0, cancellationToken))
+        {
+            throw new InvalidOperationException("A data fetch operation is already in progress");
+        }
+
+        try
+        {
+            await FetchDataInternalAsync(cancellationToken);
+        }
+        finally
+        {
+            _fetchSemaphore.Release();
+        }
+    }
+
+    private async Task FetchDataInternalAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -92,7 +123,14 @@ public class DataFetchService : BackgroundService
                 "/qdii/qdii_list/C?rp=22"
             };
 
-            var allFunds = new List<JisiluCell>();
+            var allFunds = new Dictionary<string, JisiluCell>(); // Use dictionary to prevent duplicates
+
+            // Create HttpClient with proper headers for each request
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+            httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
 
             // Fetch data from all LOF URLs
             foreach (var lofUrl in lofUrls)
@@ -107,16 +145,29 @@ public class DataFetchService : BackgroundService
 
                     _logger.LogInformation("Fetching from: {Url}", fullUrl);
 
-                    var response = await _httpClient.GetAsync(fullUrl, cancellationToken);
+                    var response = await httpClient.GetAsync(fullUrl, cancellationToken);
                     response.EnsureSuccessStatusCode();
 
                     var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    var jisiluResponse = System.Text.Json.JsonSerializer.Deserialize<JisiluResponse>(content);
+                    
+                    var options = new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    var jisiluResponse = System.Text.Json.JsonSerializer.Deserialize<JisiluResponse>(content, options);
 
                     if (jisiluResponse?.Rows != null)
                     {
                         _logger.LogInformation("Received {Count} rows from {Url}", jisiluResponse.Rows.Count, lofUrl);
-                        allFunds.AddRange(jisiluResponse.Rows.Select(r => r.Cell));
+                        
+                        // Add funds to dictionary to prevent duplicates
+                        foreach (var row in jisiluResponse.Rows)
+                        {
+                            if (!string.IsNullOrEmpty(row.Cell.FundId) && !allFunds.ContainsKey(row.Cell.FundId))
+                            {
+                                allFunds[row.Cell.FundId] = row.Cell;
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -127,7 +178,7 @@ public class DataFetchService : BackgroundService
             }
 
             // Filter funds: discount_rt > 10% AND redeem_status = "开放赎回"
-            var filteredFunds = allFunds.Where(fund =>
+            var filteredFunds = allFunds.Values.Where(fund =>
             {
                 // Parse discount_rt (e.g., "41.74%" -> 41.74)
                 if (string.IsNullOrEmpty(fund.DiscountRt) || fund.DiscountRt == "-")
@@ -137,25 +188,25 @@ public class DataFetchService : BackgroundService
                 }
 
                 var discountStr = fund.DiscountRt.Replace("%", "").Trim();
-                if (!decimal.TryParse(discountStr, out var discountValue))
+                if (!decimal.TryParse(discountStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var discountValue))
                 {
                     _logger.LogDebug("Fund {FundId} skipped: cannot parse discount_rt '{DiscountRt}'", fund.FundId, fund.DiscountRt);
                     return false;
                 }
 
-                var meetsDiscountCriteria = discountValue > 10m;
-                var meetsRedeemCriteria = fund.RedeemStatus == "开放赎回";
+                var meetsDiscountCriteria = discountValue > MIN_DISCOUNT_RATE;
+                var meetsRedeemCriteria = fund.RedeemStatus == REDEEM_STATUS_OPEN;
 
                 if (!meetsDiscountCriteria)
                 {
-                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: discount_rt {Discount}% <= 10%", 
-                        fund.FundId, fund.FundNm, discountValue);
+                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: discount_rt {Discount}% <= {MinDiscount}%", 
+                        fund.FundId, fund.FundNm, discountValue, MIN_DISCOUNT_RATE);
                 }
 
                 if (!meetsRedeemCriteria)
                 {
-                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: redeem_status '{Status}' != '开放赎回'", 
-                        fund.FundId, fund.FundNm, fund.RedeemStatus);
+                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: redeem_status '{Status}' != '{ExpectedStatus}'", 
+                        fund.FundId, fund.FundNm, fund.RedeemStatus, REDEEM_STATUS_OPEN);
                 }
 
                 // Check if discount_rt > 10% AND redeem_status = "开放赎回"
@@ -168,8 +219,8 @@ public class DataFetchService : BackgroundService
                 return result;
             }).ToList();
 
-            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > 10% and redeem_status = '开放赎回')", 
-                allFunds.Count, filteredFunds.Count);
+            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > {MinDiscount}% and redeem_status = '{ExpectedStatus}')", 
+                allFunds.Count, filteredFunds.Count, MIN_DISCOUNT_RATE, REDEEM_STATUS_OPEN);
 
             // Convert to LofArbitrageData format
             var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
