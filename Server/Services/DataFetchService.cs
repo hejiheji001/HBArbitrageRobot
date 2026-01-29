@@ -228,6 +228,7 @@ public class DataFetchService : BackgroundService
             var lofData = filteredFunds.Select(fund => new LofArbitrageData
             {
                 LofFund = fund.FundId,
+                ApplyStatus = fund.ApplyStatus,
                 LofArbitrage = new LofArbitrage
                 {
                     PurchaseQuantity = "1",

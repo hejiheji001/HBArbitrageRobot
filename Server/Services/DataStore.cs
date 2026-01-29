@@ -16,6 +16,7 @@ public class DataStore
             _currentLofData = data.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
+                ApplyStatus = d.ApplyStatus,
                 LofArbitrage = new LofArbitrage
                 {
                     PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,
@@ -44,6 +45,7 @@ public class DataStore
             return _currentLofData.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
+                ApplyStatus = d.ApplyStatus,
                 LofArbitrage = new LofArbitrage
                 {
                     PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,

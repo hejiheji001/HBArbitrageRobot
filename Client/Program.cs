@@ -127,10 +127,23 @@ class Program
             }
             
             Console.WriteLine($"Fetched {lofData.Count} LOF arbitrage items");
+            
+            // Calculate total investment based on apply_status
+            decimal totalInvestment = 0;
+            
             foreach (var item in lofData)
             {
-                Console.WriteLine($"  - Fund: {item.LofFund}, Quantity: {item.LofArbitrage.PurchaseQuantity}, Date: {item.LofArbitrage.PurchaseDate}");
+                var applyLimit = ParseApplyStatusToNumber(item.ApplyStatus);
+                var investmentPerFund = stockHolderList.Count * applyLimit;
+                totalInvestment += investmentPerFund;
+                
+                Console.WriteLine($"  - Fund: {item.LofFund}, Apply Status: {item.ApplyStatus}, Limit: {applyLimit}, Investment: {investmentPerFund} (万元)");
             }
+            
+            Console.WriteLine($"\nTotal Investment Summary:");
+            Console.WriteLine($"  - Number of StockHolders: {stockHolderList.Count}");
+            Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
+            Console.WriteLine($"  - Total Investment Amount: {totalInvestment} (万元)");
 
             // Step 7: Create arbitrage request
             var request = new CreateArbitrageRequest
@@ -285,6 +298,33 @@ class Program
             Console.WriteLine($"Error creating arbitrage: {ex.Message}");
             return false;
         }
+    }
+
+    private static decimal ParseApplyStatusToNumber(string applyStatus)
+    {
+        if (string.IsNullOrEmpty(applyStatus))
+        {
+            return 0;
+        }
+
+        // Remove all non-digit characters and parse
+        // Examples: "限10" -> 10, "限100" -> 100, "开放申购" -> 0
+        var digits = new string(applyStatus.Where(char.IsDigit).ToArray());
+        
+        if (string.IsNullOrEmpty(digits))
+        {
+            // For statuses like "开放申购" (open for subscription) with no numeric limit
+            // We can interpret this as unlimited, but for practical purposes, return 0
+            // or a default value
+            return 0;
+        }
+
+        if (decimal.TryParse(digits, out var result))
+        {
+            return result;
+        }
+
+        return 0;
     }
 }
 
