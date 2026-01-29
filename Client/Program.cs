@@ -33,11 +33,10 @@ class Program
             
             IPlaywright? playwright = null;
             IBrowser? browser = null;
-            int retryCount = 0;
-            const int maxRetries = 2;
             var headless = Environment.GetEnvironmentVariable("HEADLESS") != "false";
             
-            while (retryCount < maxRetries)
+            // Try to initialize Playwright with one retry after installation if needed
+            for (int attempt = 0; attempt < 2; attempt++)
             {
                 try
                 {
@@ -50,14 +49,12 @@ class Program
                     });
                     break; // Success - exit the retry loop
                 }
-                catch (Exception ex) when (ex.Message.Contains("Executable doesn't exist") || 
-                                          ex.Message.Contains("Playwright was just installed"))
+                catch (Exception ex) when ((ex.Message.Contains("Executable doesn't exist") || 
+                                           ex.Message.Contains("Playwright was just installed")) && attempt == 0)
                 {
-                    if (retryCount > 0)
-                    {
-                        // Already tried installation, give up
-                        throw;
-                    }
+                    // Dispose playwright if it was created before the browser launch failed
+                    playwright?.Dispose();
+                    playwright = null;
                     
                     Console.WriteLine("\nPlaywright browsers are not installed.");
                     Console.Write("Would you like to install Playwright browsers now? (Y/N): ");
@@ -76,26 +73,24 @@ class Program
                         {
                             Console.WriteLine("\n✓ Playwright browsers installed successfully!");
                             Console.WriteLine("Retrying browser initialization...\n");
-                            retryCount++;
-                            
-                            // Clean up playwright instance if it was partially created
-                            if (playwright != null)
-                            {
-                                playwright.Dispose();
-                                playwright = null;
-                            }
                         }
                         else
                         {
                             Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
-                            Environment.Exit(1);
+                            return;
                         }
                     }
                     else
                     {
                         Console.WriteLine("\nPlaywright installation cancelled. Exiting...");
-                        Environment.Exit(0);
+                        return;
                     }
+                }
+                catch (Exception)
+                {
+                    // Clean up on any other exception
+                    playwright?.Dispose();
+                    throw;
                 }
             }
             
