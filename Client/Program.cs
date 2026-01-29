@@ -8,29 +8,21 @@ class Program
     {
         Console.WriteLine("HBArbitrageRobot Client Starting...");
 
-        // Parse arguments or environment variables for credentials
-        var username = GetConfig(args, "USERNAME", 0);
-        var password = GetConfig(args, "PASSWORD", 1);
-        var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
-        var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
-        
-        // Configurable max investment per stock holder per fund (in yuan)
-        var maxInvestmentPerHolder = decimal.Parse(GetConfig(args, "MAX_INVESTMENT", 5, "1000"));
-        
         // Configurable retry delay in seconds (default: 60 seconds)
-        var retryDelaySeconds = int.Parse(GetConfig(args, "RETRY_DELAY_SECONDS", 6, "60"));
-
-        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        int retryDelaySeconds = 60;
+        
+        // Try to parse retry delay early, but use default if it fails
+        try
         {
-            Console.WriteLine("ERROR: Username and password are required.");
-            Console.WriteLine("Usage:");
-            Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time]");
-            Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME environment variables");
-            Console.WriteLine("\nWaiting before retrying...");
-            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
-            // Don't exit - configuration might be available on next retry
-            await Main(args); // Recursive retry
-            return;
+            var retryDelayConfig = GetConfig(args, "RETRY_DELAY_SECONDS", 6, "60");
+            if (!string.IsNullOrEmpty(retryDelayConfig))
+            {
+                retryDelaySeconds = int.Parse(retryDelayConfig);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to parse RETRY_DELAY_SECONDS, using default of 60 seconds. Error: {ex.Message}");
         }
 
         // Infinite loop to handle errors and retry
@@ -38,7 +30,35 @@ class Program
         {
             try
             {
-                await RunArbitrageWorkflowAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder);
+                // Parse arguments or environment variables for credentials
+                var username = GetConfig(args, "USERNAME", 0);
+                var password = GetConfig(args, "PASSWORD", 1);
+                var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
+                var txnPassword = GetConfig(args, "PWD", 3);
+                var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
+                
+                // Configurable max investment per stock holder per fund (in yuan)
+                decimal maxInvestmentPerHolder = 1000m;
+                try
+                {
+                    var maxInvestmentConfig = GetConfig(args, "MAX_INVESTMENT", 5, "1000");
+                    maxInvestmentPerHolder = decimal.Parse(maxInvestmentConfig);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Warning: Failed to parse MAX_INVESTMENT, using default of 1000 yuan. Error: {ex.Message}");
+                }
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                {
+                    Console.WriteLine("ERROR: Username and password are required.");
+                    Console.WriteLine("Usage:");
+                    Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment] [retry_delay_seconds]");
+                    Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME, MAX_INVESTMENT, RETRY_DELAY_SECONDS environment variables");
+                    throw new InvalidOperationException("Username and password are required");
+                }
+                
+                await RunArbitrageWorkflowAsync(username, password, apiUrl, txnPassword, purchaseTime, maxInvestmentPerHolder);
                 
                 // If successful, wait and retry
                 Console.WriteLine($"\n✓ Workflow completed successfully. Waiting {retryDelaySeconds} seconds before next run...");
@@ -54,52 +74,50 @@ class Program
         }
     }
 
-    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder)
+    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string txnPassword, string purchaseTime, decimal maxInvestmentPerHolder)
     {
-        try
+        // Set Playwright to use running directory for browser installation if not already set
+        // This prevents the default AppData location from being used
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
         {
-            // Set Playwright to use running directory for browser installation if not already set
-            // This prevents the default AppData location from being used
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
-            {
-                // Setting to "0" makes Playwright use a path relative to the executable
-                Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
-                Console.WriteLine("Set PLAYWRIGHT_BROWSERS_PATH=0 (using running directory for browsers)");
-            }
-            
-            // Step 1: Launch browser and login
-            Console.WriteLine("\nInitializing Playwright...");
-            
-            IPlaywright? playwright = null;
-            IBrowser? browser = null;
-            
-            // Determine if we should run headless
-            // In development mode, default to showing the browser UI
-            // In production, default to headless unless explicitly set to false
-            var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" || 
-                                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            
-            var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
-            bool headless;
-            
-            if (!string.IsNullOrEmpty(headlessEnv))
-            {
-                // If HEADLESS is explicitly set, use that value
-                headless = headlessEnv.ToLower() != "false";
-            }
-            else
-            {
-                // Default behavior: show UI in development, hide in production
-                headless = !isDevelopment;
-            }
-            
-            Console.WriteLine($"Running in {(isDevelopment ? "Development" : "Production")} mode");
-            Console.WriteLine($"Browser mode: {(headless ? "Headless" : "Visible UI")}");
-            
-            // Try to initialize Playwright with one retry after installation if needed
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                try
+            // Setting to "0" makes Playwright use a path relative to the executable
+            Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
+            Console.WriteLine("Set PLAYWRIGHT_BROWSERS_PATH=0 (using running directory for browsers)");
+        }
+        
+        // Step 1: Launch browser and login
+        Console.WriteLine("\nInitializing Playwright...");
+        
+        IPlaywright? playwright = null;
+        IBrowser? browser = null;
+        
+        // Determine if we should run headless
+        // In development mode, default to showing the browser UI
+        // In production, default to headless unless explicitly set to false
+        var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" || 
+                            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        
+        var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
+        bool headless;
+        
+        if (!string.IsNullOrEmpty(headlessEnv))
+        {
+            // If HEADLESS is explicitly set, use that value
+            headless = headlessEnv.ToLower() != "false";
+        }
+        else
+        {
+            // Default behavior: show UI in development, hide in production
+            headless = !isDevelopment;
+        }
+        
+        Console.WriteLine($"Running in {(isDevelopment ? "Development" : "Production")} mode");
+        Console.WriteLine($"Browser mode: {(headless ? "Headless" : "Visible UI")}");
+        
+        // Try to initialize Playwright with one retry after installation if needed
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            try
                 {
                     playwright = await Playwright.CreateAsync();
                     
@@ -155,17 +173,17 @@ class Program
                 }
             }
             
-            if (playwright == null || browser == null)
-            {
-                throw new InvalidOperationException("Failed to initialize Playwright after installation");
-            }
-            
-            using (playwright)
-            await using (browser)
-            {
-                // Use mobile device emulation since the URLs are mobile pages
-                var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
-                var page = await context.NewPageAsync();
+        if (playwright == null || browser == null)
+        {
+            throw new InvalidOperationException("Failed to initialize Playwright after installation");
+        }
+        
+        using (playwright)
+        await using (browser)
+        {
+            // Use mobile device emulation since the URLs are mobile pages
+            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+            var page = await context.NewPageAsync();
 
             // Step 2: Navigate to login page
             var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
@@ -347,7 +365,7 @@ class Program
                 StockHolderList = stockHolderList,
                 PurchaseTime = purchaseTime,
                 List = lofData,
-                Password = password
+                Password = txnPassword
             };
 
             Console.WriteLine($"\nCreating arbitrage with:");
@@ -378,13 +396,7 @@ class Program
                 // In headless mode, wait a bit before closing
                 await Task.Delay(5000);
             }
-            } // Close using blocks
-        }
-        catch (Exception ex)
-        {
-            // Let exception bubble up to be caught by the main loop
-            throw new InvalidOperationException($"Workflow failed: {ex.Message}", ex);
-        }
+        } // Close using blocks
     }
 
     private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
