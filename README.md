@@ -149,6 +149,20 @@ docker-compose logs -f client
 docker-compose down
 ```
 
+## API Documentation
+
+The Server provides an interactive API documentation interface powered by **Scalar**. Once the server is running, you can access:
+
+- **Scalar API Reference UI**: `http://localhost:5000/scalar/v1` (or `http://localhost:8080/scalar/v1` when running in Docker)
+  - Beautiful, modern interactive API documentation
+  - Test API endpoints directly from the browser
+  - View request/response schemas
+  - Example requests and responses
+
+- **OpenAPI Specification**: `http://localhost:5000/openapi/v1.json`
+  - Raw OpenAPI 3.1 specification in JSON format
+  - Can be imported into tools like Postman, Insomnia, etc.
+
 ## API Endpoints
 
 ### GET /api/data

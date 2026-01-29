@@ -1,4 +1,5 @@
 using Server.Services;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,10 +16,8 @@ builder.Services.AddHostedService(provider => provider.GetRequiredService<DataFe
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.MapOpenApi();
+app.MapScalarApiReference();
 
 // Only use HTTPS redirection in development, not in Docker
 if (!app.Environment.IsProduction())

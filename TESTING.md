@@ -26,7 +26,26 @@ This guide explains how to test both the Server and Client components of the HBA
          Now listening on: http://localhost:5290
    ```
 
-3. **Test the API endpoint:**
+3. **Access the Scalar API Documentation UI:**
+   
+   Open your web browser and navigate to:
+   ```
+   http://localhost:5290/scalar/v1
+   ```
+   
+   The Scalar UI provides:
+   - Interactive API documentation with a modern interface
+   - Ability to test API endpoints directly from the browser
+   - View all request/response schemas
+   - Example requests and responses
+   - Try out the API with different parameters
+   
+   You can also access the raw OpenAPI specification at:
+   ```
+   http://localhost:5290/openapi/v1.json
+   ```
+
+4. **Test the API endpoint:**
    
    In a new terminal, test the `/api/data` endpoint:
    
@@ -129,7 +148,14 @@ This guide explains how to test both the Server and Client components of the HBA
    docker run -p 8080:8080 hbarbitrage-server
    ```
 
-3. **Test the API:**
+3. **Access the Scalar API Documentation:**
+   
+   Open your browser and navigate to:
+   ```
+   http://localhost:8080/scalar/v1
+   ```
+
+4. **Test the API:**
    ```bash
    curl http://localhost:8080/api/data
    ```
@@ -146,17 +172,24 @@ This guide explains how to test both the Server and Client components of the HBA
    docker-compose up -d server
    ```
 
-2. **Test the API:**
+2. **Access the Scalar API Documentation:**
+   
+   Open your browser and navigate to:
+   ```
+   http://localhost:8080/scalar/v1
+   ```
+
+3. **Test the API:**
    ```bash
    curl http://localhost:8080/api/data
    ```
 
-3. **View logs:**
+4. **View logs:**
    ```bash
    docker-compose logs -f server
    ```
 
-4. **Stop the service:**
+5. **Stop the service:**
    ```bash
    docker-compose down
    ```
