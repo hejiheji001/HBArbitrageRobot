@@ -250,7 +250,7 @@ class Program
             Console.WriteLine($"Error fetching stock holders: {ex.Message}");
         }
         
-        return new List<string>();
+        return [];
     }
 
     private static async Task<List<LofArbitrageData>?> FetchLofDataFromApi(string baseUrl)

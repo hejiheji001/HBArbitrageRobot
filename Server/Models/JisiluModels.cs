@@ -11,7 +11,7 @@ public class JisiluResponse
     public int Page { get; set; }
 
     [JsonPropertyName("rows")]
-    public List<JisiluRow> Rows { get; set; } = new();
+    public List<JisiluRow> Rows { get; set; } = [];
 }
 
 /// <summary>

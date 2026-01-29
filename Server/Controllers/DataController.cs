@@ -91,7 +91,7 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
                 message = "Data fetch completed successfully",
                 fetchTime = cacheDateTime,
                 dataCount = latestData?.Count ?? 0,
-                data = latestData ?? new List<LofArbitrageData>()
+                data = latestData ?? []
             });
         }
         catch (InvalidOperationException ex)
