@@ -260,7 +260,7 @@ public class DataFetchService : BackgroundService
         }
     }
 
-    private static DateTime GetShanghaiTime()
+    public static DateTime GetShanghaiTime()
     {
         try
         {
@@ -272,10 +272,5 @@ public class DataFetchService : BackgroundService
             // Fallback: China is UTC+8
             return DateTime.UtcNow.AddHours(8);
         }
-    }
-
-    public static DateTime GetCurrentShanghaiTime()
-    {
-        return GetShanghaiTime();
     }
 }

@@ -22,7 +22,7 @@ public class DataController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<LofArbitrageData>>> GetData(CancellationToken cancellationToken)
     {
-        var currentShanghaiTime = DataFetchService.GetCurrentShanghaiTime();
+        var currentShanghaiTime = DataFetchService.GetShanghaiTime();
         
         // Check if cache is valid for current date
         if (_dataStore.IsCacheValidForDate(currentShanghaiTime))
@@ -86,7 +86,7 @@ public class DataController : ControllerBase
     }
 
     [HttpPost("fetch")]
-    public async Task<ActionResult<List<LofArbitrageData>>> TriggerFetch(CancellationToken cancellationToken)
+    public async Task<IActionResult> TriggerFetch(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Manual fetch triggered");
         try
