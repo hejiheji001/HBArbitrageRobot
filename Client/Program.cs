@@ -293,7 +293,7 @@ class Program
             // Use Playwright's API request context to make the POST request with the authenticated session
             var response = await page.Context.APIRequest.PostAsync(
                 "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
-                new Microsoft.Playwright.APIRequestContextOptions
+                new APIRequestContextOptions
                 {
                     DataObject = request
                 });

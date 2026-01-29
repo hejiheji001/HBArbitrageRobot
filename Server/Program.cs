@@ -18,7 +18,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // Enable OpenAPI and Scalar in development, or when explicitly enabled in production
 var enableApiDocs = app.Environment.IsDevelopment() || 
-                    app.Configuration.GetValue<bool>("EnableApiDocs", false);
+                    app.Configuration.GetValue("EnableApiDocs", false);
 
 if (enableApiDocs)
 {
