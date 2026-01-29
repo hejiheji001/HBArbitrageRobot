@@ -385,10 +385,10 @@ The client supports configuration via:
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
    - `HEADLESS`: Run browser in headless mode (default: true)
-   - `PLAYWRIGHT_BROWSERS_PATH`: Controls where Playwright browsers are installed (default: 0 - uses running directory)
+   - `PLAYWRIGHT_BROWSERS_PATH`: Controls where Playwright browsers are installed (automatically set to `0` by the application if not configured)
      - Set to `0` to install browsers relative to the executable (recommended)
      - Set to a custom path to use a specific directory
-     - If not set, the application automatically sets it to `0` to avoid using AppData
+     - If not set, the application automatically sets it to `0` to avoid using the system AppData directory
 
 ## Publishing Docker Images
 
