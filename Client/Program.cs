@@ -14,6 +14,9 @@ class Program
         var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
         var pwd = GetConfig(args, "PWD", 3); // Transaction password (required, no default)
         var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
+        
+        // Configurable max investment per stock holder per fund (in yuan)
+        var maxInvestmentPerHolder = decimal.Parse(GetConfig(args, "MAX_INVESTMENT", 5, "1000"));
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
@@ -131,19 +134,26 @@ class Program
             // Calculate total investment based on apply_status
             decimal totalInvestment = 0;
             
+            Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
+            
             foreach (var item in lofData)
             {
                 var applyLimit = ParseApplyStatusToNumber(item.ApplyStatus);
-                var investmentPerFund = stockHolderList.Count * applyLimit;
+                // Take the minimum of apply_status limit and configured max investment per holder
+                var effectiveLimit = applyLimit > 0 ? Math.Min(applyLimit, maxInvestmentPerHolder) : maxInvestmentPerHolder;
+                var investmentPerFund = stockHolderList.Count * effectiveLimit;
                 totalInvestment += investmentPerFund;
                 
-                Console.WriteLine($"  - Fund: {item.LofFund}, Apply Status: {item.ApplyStatus}, Limit: {applyLimit}, Investment: {investmentPerFund} (万元)");
+                Console.WriteLine($"  - Fund: {item.LofFund}");
+                Console.WriteLine($"    Apply Status: {item.ApplyStatus}, Limit: {(applyLimit > 0 ? applyLimit.ToString() : "unlimited")} yuan");
+                Console.WriteLine($"    Effective Limit: {effectiveLimit} yuan per holder");
+                Console.WriteLine($"    Investment: {stockHolderList.Count} holders × {effectiveLimit} yuan = {investmentPerFund} yuan");
             }
             
             Console.WriteLine($"\nTotal Investment Summary:");
-            Console.WriteLine($"  - Number of StockHolders: {stockHolderList.Count}");
+            Console.WriteLine($"  - Number of Stock Holders: {stockHolderList.Count}");
             Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
-            Console.WriteLine($"  - Total Investment Amount: {totalInvestment} (万元)");
+            Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
 
             // Step 7: Create arbitrage request
             var request = new CreateArbitrageRequest
@@ -307,25 +317,52 @@ class Program
             return 0;
         }
 
-        // Use regex to extract the first number after "限" character
-        // Examples: "限10" → 10, "限100" → 100
-        var match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"限(\d+)");
-        if (match.Success && decimal.TryParse(match.Groups[1].Value, out var result))
+        // Handle "开放申购" (open for subscription) - means unlimited
+        if (applyStatus.Contains("开放"))
         {
-            return result;
+            return 0; // Return 0 to indicate unlimited (will use maxInvestmentPerHolder)
         }
 
-        // If no "限" pattern found, try to extract any digits as fallback
-        var digits = string.Concat(applyStatus.Where(char.IsDigit));
-        
-        if (!string.IsNullOrEmpty(digits) && digits.Length <= 10 && decimal.TryParse(digits, out var fallbackResult))
+        try
         {
-            return fallbackResult;
+            // Try to match patterns like "限10", "限1万", "限1千"
+            var match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"限(\d+(?:\.\d+)?)(万|千)?");
+            
+            if (match.Success)
+            {
+                var numberStr = match.Groups[1].Value;
+                var unit = match.Groups[2].Value;
+                
+                if (decimal.TryParse(numberStr, out var number))
+                {
+                    // Apply multiplier based on unit
+                    if (unit == "万")
+                    {
+                        return number * 10000; // 1万 = 10,000 yuan
+                    }
+                    else if (unit == "千")
+                    {
+                        return number * 1000; // 1千 = 1,000 yuan
+                    }
+                    else
+                    {
+                        return number; // Just the number (e.g., "限10" = 10 yuan)
+                    }
+                }
+            }
+
+            // Fallback: try to extract first number
+            match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"(\d+(?:\.\d+)?)");
+            if (match.Success && decimal.TryParse(match.Groups[1].Value, out var fallback))
+            {
+                return fallback;
+            }
+        }
+        catch (Exception)
+        {
+            // If parsing fails, return 0
         }
 
-        // For statuses like "开放申购" (open for subscription) with no numeric limit
-        // Return 0 to indicate no defined limit for calculation purposes
-        // Note: In business logic, this may mean "unlimited" but is treated as 0 for investment calculation
         return 0;
     }
 }

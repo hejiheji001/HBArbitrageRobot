@@ -83,9 +83,9 @@ The server will start at `http://localhost:5000` (or `https://localhost:5001`).
 
 ```bash
 cd Client
-dotnet run <username> <password> [api_url] [pwd] [purchase_time]
+dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
 # Example:
-# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15
+# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
 ```
 
 Or use environment variables:
@@ -96,6 +96,7 @@ export PASSWORD="your_password"
 export PWD="your_transaction_password"
 export PURCHASE_TIME="14:15"
 export API_URL="http://localhost:5000"
+export MAX_INVESTMENT="1000"
 dotnet run
 ```
 
@@ -247,8 +248,14 @@ The Client performs the following automated workflow:
 2. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
 3. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
 4. **Calculate Investment**: For each LOF fund, calculates total investment amount:
-   - Parses `applyStatus` to extract numeric limit (e.g., "限10" → 10, "限100" → 100)
-   - Calculates investment per fund: `number_of_stockholders × apply_status_limit`
+   - Parses `applyStatus` to extract limit value:
+     - "限10" → 10 yuan
+     - "限1万" → 10,000 yuan
+     - "限1千" → 1,000 yuan
+     - "开放申购" → unlimited (uses max limit)
+   - Applies max investment limit per holder (default: 1000 yuan, configurable via MAX_INVESTMENT)
+   - Calculates effective investment: `min(apply_status_limit, max_per_holder)`
+   - Calculates total per fund: `number_of_stockholders × effective_limit`
    - Displays total investment amount across all funds
 5. **Create Arbitrage**: Sends POST request to `createLofArbitrage.do` with:
    - Stock holder list
@@ -258,10 +265,16 @@ The Client performs the following automated workflow:
 
 ### Investment Calculation Example
 
-With 3 stock holders and LOF funds:
-- Fund A: apply_status = "限10" → 3 × 10 = 30 (万元)
-- Fund B: apply_status = "限100" → 3 × 100 = 300 (万元)
-- Total Investment: 330 (万元)
+**Configuration:**
+- Max investment per holder: 1000 yuan
+- Stock holders: 3
+
+**LOF Funds:**
+- Fund A: apply_status = "限10" → effective: min(10, 1000) = 10 → investment: 3 × 10 = 30 yuan
+- Fund B: apply_status = "限100" → effective: min(100, 1000) = 100 → investment: 3 × 100 = 300 yuan
+- Fund C: apply_status = "限1万" → effective: min(10000, 1000) = 1000 → investment: 3 × 1000 = 3000 yuan
+- Fund D: apply_status = "开放申购" → effective: 1000 → investment: 3 × 1000 = 3000 yuan
+- **Total Investment**: 6330 yuan
 
 ## Configuration
 
@@ -295,7 +308,7 @@ The client supports configuration via:
 
 1. **Command Line Arguments** (Testing):
    ```bash
-   dotnet run <username> <password> [api_url] [pwd] [purchase_time]
+   dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
    ```
 
 2. **Environment Variables** (Production):
@@ -304,6 +317,7 @@ The client supports configuration via:
    - `PWD`: Transaction password for creating arbitrage (required)
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
+   - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
    - `HEADLESS`: Run browser in headless mode (default: true)
 
 ## Publishing Docker Images
