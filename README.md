@@ -6,7 +6,9 @@ A .NET 10 application with Server and Client components for automated arbitrage 
 
 - **Server Component**: 
   - RESTful API to expose LOF arbitrage data
-  - Scheduled data fetching from example.com every day at 14:00 Shanghai time
+  - Scheduled data fetching from jisilu.cn every day at 14:00 Shanghai time
+  - Fetches data from 4 LOF endpoints (index LOF, stock LOF, and QDII)
+  - Filters funds with discount_rt > 10% and redeem_status = "开放赎回"
   - Automatically sets purchase date to current date
   - Returns array of LOF fund arbitrage configurations
   - Built with ASP.NET Core Web API
@@ -150,13 +152,13 @@ docker-compose down
 
 ### GET /api/data
 
-Returns the latest fetched LOF arbitrage data.
+Returns the latest fetched LOF arbitrage data from jisilu.cn.
 
 **Response (Success - 200 OK):**
 ```json
 [
   {
-    "lofFund": "161226",
+    "lofFund": "160416",
     "lofArbitrage": {
       "purchaseQuantity": "1",
       "purchaseDate": "2026-01-29"
@@ -178,6 +180,25 @@ Returns the latest fetched LOF arbitrage data.
 }
 ```
 
+### POST /api/data/fetch
+
+Manually triggers a data fetch from jisilu.cn (for testing purposes).
+
+**Response (Success - 200 OK):**
+```json
+{
+  "message": "Data fetch completed successfully"
+}
+```
+
+**Response (Error - 500 Internal Server Error):**
+```json
+{
+  "message": "Data fetch failed",
+  "error": "Error details..."
+}
+```
+
 ## Client Workflow
 
 The Client performs the following automated workflow:
@@ -195,7 +216,20 @@ The Client performs the following automated workflow:
 
 ### Server Configuration
 
-The server automatically fetches data from `example.com` at 14:00 Shanghai time daily and sets the purchase date to the current date.
+The server automatically fetches data from jisilu.cn at 14:00 Shanghai time daily. It queries 4 different LOF endpoints:
+- Index LOF list
+- Stock LOF list  
+- QDII list (E type, LOF only)
+- QDII list (C type)
+
+The server filters funds that meet both criteria:
+- discount_rt > 10%
+- redeem_status = "开放赎回" (Open for redemption)
+
+Each filtered fund is added to the arbitrage configuration with:
+- Purchase quantity: 1
+- Purchase date: Current date in Shanghai timezone
+- Policy type: 4 (default strategy)
 
 ### Client Configuration
 
@@ -275,6 +309,9 @@ cd Server && dotnet run
 
 # In another terminal, test the API
 curl http://localhost:5290/api/data
+
+# Manually trigger a data fetch (for testing)
+curl -X POST http://localhost:5290/api/data/fetch
 ```
 
 **Test Client:**

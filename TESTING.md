@@ -34,6 +34,12 @@ This guide explains how to test both the Server and Client components of the HBA
    # Test with curl
    curl http://localhost:5290/api/data
    
+   # Manually trigger a data fetch for testing
+   curl -X POST http://localhost:5290/api/data/fetch
+   
+   # Check the fetched data
+   curl http://localhost:5290/api/data
+   
    # Or with wget
    wget -qO- http://localhost:5290/api/data
    
@@ -48,11 +54,18 @@ This guide explains how to test both the Server and Client components of the HBA
    }
    ```
    
+   **Expected Response (after manual fetch trigger):**
+   ```json
+   {
+     "message": "Data fetch completed successfully"
+   }
+   ```
+   
    **Expected Response (after data is available):**
    ```json
    [
      {
-       "lofFund": "161226",
+       "lofFund": "160416",
        "lofArbitrage": {
          "purchaseQuantity": "1",
          "purchaseDate": "2026-01-29"
@@ -66,6 +79,8 @@ This guide explains how to test both the Server and Client components of the HBA
      }
    ]
    ```
+   
+   Note: The actual data will vary based on the current LOF funds from jisilu.cn that meet the filtering criteria (discount_rt > 10% and redeem_status = "开放赎回").
 
 ### Method 2: Testing with Docker
 
@@ -168,6 +183,10 @@ The Client requires:
 ```bash
 # Get LOF arbitrage data
 curl -X GET http://localhost:5290/api/data \
+  -H "Content-Type: application/json" | jq .
+
+# Manually trigger a data fetch
+curl -X POST http://localhost:5290/api/data/fetch \
   -H "Content-Type: application/json" | jq .
 
 # Pretty print with jq
