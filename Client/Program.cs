@@ -42,7 +42,29 @@ class Program
             
             IPlaywright? playwright = null;
             IBrowser? browser = null;
-            var headless = Environment.GetEnvironmentVariable("HEADLESS") != "false";
+            
+            // Determine if we should run headless
+            // In development mode, default to showing the browser UI
+            // In production, default to headless unless explicitly set to false
+            var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" || 
+                                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            
+            var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
+            bool headless;
+            
+            if (!string.IsNullOrEmpty(headlessEnv))
+            {
+                // If HEADLESS is explicitly set, use that value
+                headless = headlessEnv.ToLower() != "false";
+            }
+            else
+            {
+                // Default behavior: show UI in development, hide in production
+                headless = !isDevelopment;
+            }
+            
+            Console.WriteLine($"Running in {(isDevelopment ? "Development" : "Production")} mode");
+            Console.WriteLine($"Browser mode: {(headless ? "Headless" : "Visible UI")}");
             
             // Try to initialize Playwright with one retry after installation if needed
             for (int attempt = 0; attempt < 2; attempt++)
@@ -153,7 +175,12 @@ class Program
                 // Wait for navigation after login
                 await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
                 
+                // Add additional wait to ensure session is fully established
+                Console.WriteLine("Waiting for session to be established...");
+                await Task.Delay(3000); // 3 seconds
+                
                 Console.WriteLine("Login submitted successfully");
+                Console.WriteLine($"Current URL after login: {page.Url}");
             }
             catch (Exception ex)
             {
@@ -164,7 +191,70 @@ class Program
             // Step 4: Navigate to the main page after login
             var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
             Console.WriteLine($"\nNavigating to main page: {mainUrl}");
-            await page.GotoAsync(mainUrl);
+            
+            // Add retry logic for navigation to handle transient errors
+            int maxRetries = 3;
+            int retryDelay = 2000; // 2 seconds
+            bool navigationSuccess = false;
+            Exception? lastException = null;
+            
+            for (int retry = 0; retry < maxRetries; retry++)
+            {
+                try
+                {
+                    if (retry > 0)
+                    {
+                        Console.WriteLine($"Navigation attempt {retry + 1} of {maxRetries}...");
+                        await Task.Delay(retryDelay);
+                    }
+                    
+                    // Use a longer timeout and wait for networkidle instead of load
+                    await page.GotoAsync(mainUrl, new PageGotoOptions
+                    {
+                        Timeout = 30000, // 30 seconds
+                        WaitUntil = WaitUntilState.NetworkIdle
+                    });
+                    
+                    navigationSuccess = true;
+                    Console.WriteLine("Successfully navigated to main page");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    Console.WriteLine($"Navigation attempt {retry + 1} failed: {ex.Message}");
+                    
+                    // Check if it's an ERR_ABORTED or similar navigation error
+                    if (ex.Message.Contains("ERR_ABORTED") || ex.Message.Contains("net::"))
+                    {
+                        Console.WriteLine("Detected network error, will retry...");
+                        // Wait a bit longer for network errors
+                        if (retry < maxRetries - 1)
+                        {
+                            await Task.Delay(retryDelay);
+                        }
+                    }
+                    else
+                    {
+                        // For other errors, don't retry
+                        break;
+                    }
+                }
+            }
+            
+            if (!navigationSuccess)
+            {
+                Console.WriteLine($"\n✗ Failed to navigate to main page after {maxRetries} attempts");
+                Console.WriteLine($"Last error: {lastException?.Message}");
+                Console.WriteLine("\nPossible reasons:");
+                Console.WriteLine("  - Login session may have expired or failed");
+                Console.WriteLine("  - Network connectivity issues");
+                Console.WriteLine("  - The website may be blocking automated access");
+                Console.WriteLine($"\nCurrent page URL: {page.Url}");
+                Console.WriteLine("Please check if login was successful and try again.");
+                return;
+            }
+            
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             Console.WriteLine("Page URL: " + page.Url);
 
