@@ -3,11 +3,11 @@ using System.Text.RegularExpressions;
 
 namespace Server.Services;
 
-public class DataFetchService : BackgroundService
+public class DataFetchService(
+    ILogger<DataFetchService> logger,
+    DataStore dataStore,
+    IHttpClientFactory httpClientFactory) : BackgroundService
 {
-    private readonly ILogger<DataFetchService> _logger;
-    private readonly DataStore _dataStore;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly SemaphoreSlim _fetchSemaphore = new(1, 1);
     
     // Constants for filtering criteria
@@ -18,19 +18,9 @@ public class DataFetchService : BackgroundService
     // Regex pattern for parsing ApplyStatus (e.g., "限10", "限1万", "限1千")
     private static readonly Regex ApplyStatusWithUnitRegex = new(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled);
 
-    public DataFetchService(
-        ILogger<DataFetchService> logger,
-        DataStore dataStore,
-        IHttpClientFactory httpClientFactory)
-    {
-        _logger = logger;
-        _dataStore = dataStore;
-        _httpClientFactory = httpClientFactory;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Data Fetch Service started");
+        logger.LogInformation("Data Fetch Service started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -44,7 +34,7 @@ public class DataFetchService : BackgroundService
             }
 
             var delay = targetTime - now;
-            _logger.LogInformation("Next fetch scheduled at: {TargetTime} (in {Delay})", targetTime, delay);
+            logger.LogInformation("Next fetch scheduled at: {TargetTime} (in {Delay})", targetTime, delay);
 
             try
             {
@@ -59,17 +49,17 @@ public class DataFetchService : BackgroundService
                 var nextTargetTime = new DateTime(afterFetchTime.Year, afterFetchTime.Month, afterFetchTime.Day, 14, 0, 0).AddDays(1);
                 var nextDelay = nextTargetTime - afterFetchTime;
                 
-                _logger.LogInformation("Next fetch scheduled at: {TargetTime} (in {Delay})", nextTargetTime, nextDelay);
+                logger.LogInformation("Next fetch scheduled at: {TargetTime} (in {Delay})", nextTargetTime, nextDelay);
                 await Task.Delay(nextDelay, stoppingToken);
             }
             catch (TaskCanceledException)
             {
-                _logger.LogInformation("Data fetch service is stopping");
+                logger.LogInformation("Data fetch service is stopping");
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in data fetch loop");
+                logger.LogError(ex, "Error in data fetch loop");
                 // Wait 1 minute before retrying on error
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
@@ -81,7 +71,7 @@ public class DataFetchService : BackgroundService
         // Use semaphore to ensure only one fetch operation runs at a time
         if (!await _fetchSemaphore.WaitAsync(0, cancellationToken))
         {
-            _logger.LogWarning("Fetch already in progress, skipping this request");
+            logger.LogWarning("Fetch already in progress, skipping this request");
             return;
         }
 
@@ -117,7 +107,7 @@ public class DataFetchService : BackgroundService
     {
         try
         {
-            _logger.LogInformation("Fetching data from jisilu.cn at {Time}", GetShanghaiTime());
+            logger.LogInformation("Fetching data from jisilu.cn at {Time}", GetShanghaiTime());
 
             const string baseUrl = "https://www.jisilu.cn/data";
             var lofUrls = new[]
@@ -131,7 +121,7 @@ public class DataFetchService : BackgroundService
             var allFunds = new Dictionary<string, JisiluCell>(); // Use dictionary to prevent duplicates
 
             // Create HttpClient with proper headers for each request
-            using var httpClient = _httpClientFactory.CreateClient();
+            using var httpClient = httpClientFactory.CreateClient();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
             httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
@@ -148,7 +138,7 @@ public class DataFetchService : BackgroundService
                     var separator = lofUrl.Contains('?') ? "&" : "?";
                     var fullUrl = $"{baseUrl}{lofUrl}{separator}{timestampParam}";
 
-                    _logger.LogInformation("Fetching from: {Url}", fullUrl);
+                    logger.LogInformation("Fetching from: {Url}", fullUrl);
 
                     var response = await httpClient.GetAsync(fullUrl, cancellationToken);
                     response.EnsureSuccessStatusCode();
@@ -163,7 +153,7 @@ public class DataFetchService : BackgroundService
 
                     if (jisiluResponse?.Rows != null)
                     {
-                        _logger.LogInformation("Received {Count} rows from {Url}", jisiluResponse.Rows.Count, lofUrl);
+                        logger.LogInformation("Received {Count} rows from {Url}", jisiluResponse.Rows.Count, lofUrl);
                         
                         // Add funds to dictionary to prevent duplicates
                         foreach (var row in jisiluResponse.Rows)
@@ -177,7 +167,7 @@ public class DataFetchService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to fetch data from {Url}", lofUrl);
+                    logger.LogError(ex, "Failed to fetch data from {Url}", lofUrl);
                     // Continue with other URLs even if one fails
                 }
             }
@@ -188,14 +178,14 @@ public class DataFetchService : BackgroundService
                 // Parse discount_rt (e.g., "41.74%" -> 41.74)
                 if (string.IsNullOrEmpty(fund.DiscountRt) || fund.DiscountRt == "-")
                 {
-                    _logger.LogDebug("Fund {FundId} skipped: discount_rt is empty or '-'", fund.FundId);
+                    logger.LogDebug("Fund {FundId} skipped: discount_rt is empty or '-'", fund.FundId);
                     return false;
                 }
 
                 var discountStr = fund.DiscountRt.Replace("%", "").Trim();
                 if (!decimal.TryParse(discountStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var discountValue))
                 {
-                    _logger.LogDebug("Fund {FundId} skipped: cannot parse discount_rt '{DiscountRt}'", fund.FundId, fund.DiscountRt);
+                    logger.LogDebug("Fund {FundId} skipped: cannot parse discount_rt '{DiscountRt}'", fund.FundId, fund.DiscountRt);
                     return false;
                 }
 
@@ -204,13 +194,13 @@ public class DataFetchService : BackgroundService
 
                 if (!meetsDiscountCriteria)
                 {
-                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: discount_rt {Discount}% <= {MinDiscount}%", 
+                    logger.LogDebug("Fund {FundId} ({FundNm}) skipped: discount_rt {Discount}% <= {MinDiscount}%", 
                         fund.FundId, fund.FundNm, discountValue, MIN_DISCOUNT_RATE);
                 }
 
                 if (!meetsApplyCriteria)
                 {
-                    _logger.LogDebug("Fund {FundId} ({FundNm}) skipped: apply_status '{Status}' == '{SuspendedStatus}'", 
+                    logger.LogDebug("Fund {FundId} ({FundNm}) skipped: apply_status '{Status}' == '{SuspendedStatus}'", 
                         fund.FundId, fund.FundNm, fund.ApplyStatus, APPLY_STATUS_SUSPENDED);
                 }
 
@@ -218,13 +208,13 @@ public class DataFetchService : BackgroundService
                 var result = meetsDiscountCriteria && meetsApplyCriteria;
                 if (result)
                 {
-                    _logger.LogInformation("Fund {FundId} ({FundNm}) ACCEPTED: discount_rt={Discount}%, apply_status='{Status}'", 
+                    logger.LogInformation("Fund {FundId} ({FundNm}) ACCEPTED: discount_rt={Discount}%, apply_status='{Status}'", 
                         fund.FundId, fund.FundNm, discountValue, fund.ApplyStatus);
                 }
                 return result;
             }).ToList();
 
-            _logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > {MinDiscount}% and apply_status != '{SuspendedStatus}')", 
+            logger.LogInformation("Total funds fetched: {Total}, Filtered: {Filtered} (discount_rt > {MinDiscount}% and apply_status != '{SuspendedStatus}')", 
                 allFunds.Count, filteredFunds.Count, MIN_DISCOUNT_RATE, APPLY_STATUS_SUSPENDED);
 
             // Convert to LofArbitrageData format
@@ -240,20 +230,20 @@ public class DataFetchService : BackgroundService
             }).ToList();
 
             // Update data store with datetime even if the list is empty (to indicate fetch completed)
-            _dataStore.UpdateLofData(lofData, fetchDateTime);
+            dataStore.UpdateLofData(lofData, fetchDateTime);
             
             if (lofData.Count == 0)
             {
-                _logger.LogWarning("No funds matched the filtering criteria. Empty list stored.");
+                logger.LogWarning("No funds matched the filtering criteria. Empty list stored.");
             }
             else
             {
-                _logger.LogInformation("Data fetched successfully at {Time}, {Count} items stored", GetShanghaiTime(), lofData.Count);
+                logger.LogInformation("Data fetched successfully at {Time}, {Count} items stored", GetShanghaiTime(), lofData.Count);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch data from jisilu.cn");
+            logger.LogError(ex, "Failed to fetch data from jisilu.cn");
         }
     }
 
@@ -321,7 +311,7 @@ public class DataFetchService : BackgroundService
         catch (Exception ex)
         {
             // Log parsing failures at warning level for visibility
-            _logger.LogWarning(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
+            logger.LogWarning(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
                 applyStatus, fundId, UNLIMITED_AMOUNT);
         }
 
