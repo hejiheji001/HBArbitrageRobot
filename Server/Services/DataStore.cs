@@ -16,19 +16,10 @@ public class DataStore
             _currentLofData = data.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
+                Name = d.Name,
                 ApplyStatus = d.ApplyStatus,
-                LofArbitrage = new LofArbitrage
-                {
-                    PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,
-                    PurchaseDate = d.LofArbitrage.PurchaseDate
-                },
-                LofArbitrageStrategy = new LofArbitrageStrategy
-                {
-                    PolicyType = d.LofArbitrageStrategy.PolicyType,
-                    SellTime = d.LofArbitrageStrategy.SellTime,
-                    SellStockPrice = d.LofArbitrageStrategy.SellStockPrice,
-                    TurnBack = d.LofArbitrageStrategy.TurnBack
-                }
+                Amount = d.Amount,
+                PurchaseDate = d.PurchaseDate
             }).ToList();
             
             _cacheDateTime = fetchDateTime;
@@ -45,19 +36,10 @@ public class DataStore
             return _currentLofData.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
+                Name = d.Name,
                 ApplyStatus = d.ApplyStatus,
-                LofArbitrage = new LofArbitrage
-                {
-                    PurchaseQuantity = d.LofArbitrage.PurchaseQuantity,
-                    PurchaseDate = d.LofArbitrage.PurchaseDate
-                },
-                LofArbitrageStrategy = new LofArbitrageStrategy
-                {
-                    PolicyType = d.LofArbitrageStrategy.PolicyType,
-                    SellTime = d.LofArbitrageStrategy.SellTime,
-                    SellStockPrice = d.LofArbitrageStrategy.SellStockPrice,
-                    TurnBack = d.LofArbitrageStrategy.TurnBack
-                }
+                Amount = d.Amount,
+                PurchaseDate = d.PurchaseDate
             }).ToList();
         }
     }

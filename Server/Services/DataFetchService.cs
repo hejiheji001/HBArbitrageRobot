@@ -1,4 +1,5 @@
 using Server.Models;
+using System.Text.RegularExpressions;
 
 namespace Server.Services;
 
@@ -12,6 +13,10 @@ public class DataFetchService : BackgroundService
     // Constants for filtering criteria
     private const string APPLY_STATUS_SUSPENDED = "暂停申购";
     private const decimal MIN_DISCOUNT_RATE = 10m;
+    private const decimal UNLIMITED_AMOUNT = 10000m;
+    
+    // Regex pattern for parsing ApplyStatus (e.g., "限10", "限1万", "限1千")
+    private static readonly Regex ApplyStatusWithUnitRegex = new(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled);
 
     public DataFetchService(
         ILogger<DataFetchService> logger,
@@ -228,19 +233,10 @@ public class DataFetchService : BackgroundService
             var lofData = filteredFunds.Select(fund => new LofArbitrageData
             {
                 LofFund = fund.FundId,
+                Name = fund.FundNm,
                 ApplyStatus = fund.ApplyStatus,
-                LofArbitrage = new LofArbitrage
-                {
-                    PurchaseQuantity = "1",
-                    PurchaseDate = currentDate
-                },
-                LofArbitrageStrategy = new LofArbitrageStrategy
-                {
-                    PolicyType = 4,
-                    SellTime = "",
-                    SellStockPrice = "",
-                    TurnBack = ""
-                }
+                Amount = ConvertApplyStatusToAmount(fund.ApplyStatus, fund.FundId),
+                PurchaseDate = currentDate
             }).ToList();
 
             // Update data store with datetime even if the list is empty (to indicate fetch completed)
@@ -273,5 +269,63 @@ public class DataFetchService : BackgroundService
             // Fallback: China is UTC+8
             return DateTime.UtcNow.AddHours(8);
         }
+    }
+
+    private decimal ConvertApplyStatusToAmount(string applyStatus, string fundId)
+    {
+        if (string.IsNullOrEmpty(applyStatus))
+        {
+            return UNLIMITED_AMOUNT;
+        }
+
+        // Handle "开放申购" (open for subscription) - means unlimited
+        // Per requirements: set to 10000 for unlimited status
+        // Check for exact match or starts with "开放" to avoid false positives
+        if (applyStatus == "开放申购" || applyStatus.StartsWith("开放"))
+        {
+            return UNLIMITED_AMOUNT;
+        }
+
+        try
+        {
+            // Try to match patterns like "限10", "限1万", "限1千"
+            var match = ApplyStatusWithUnitRegex.Match(applyStatus);
+            
+            if (match.Success)
+            {
+                var numberStr = match.Groups[1].Value;
+                var unit = match.Groups[2].Value; // Empty string when no unit is present
+                
+                if (decimal.TryParse(numberStr, out var number))
+                {
+                    // Apply multiplier based on unit
+                    if (unit == "万")
+                    {
+                        return number * 10000m; // 1万 = 10,000 yuan
+                    }
+                    else if (unit == "千")
+                    {
+                        return number * 1000m; // 1千 = 1,000 yuan
+                    }
+                    else
+                    {
+                        // No unit or empty string means the number is in yuan (e.g., "限10" = 10 yuan)
+                        return number;
+                    }
+                }
+            }
+            
+            // If primary pattern doesn't match, return unlimited amount
+            // Do not use fallback regex as it may match unrelated numbers
+        }
+        catch (Exception ex)
+        {
+            // Log parsing failures at warning level for visibility
+            _logger.LogWarning(ex, "Failed to parse ApplyStatus '{ApplyStatus}' for fund {FundId}, defaulting to {Amount}", 
+                applyStatus, fundId, UNLIMITED_AMOUNT);
+        }
+
+        // Default to 10000 for unlimited/unknown cases per requirements
+        return UNLIMITED_AMOUNT;
     }
 }
