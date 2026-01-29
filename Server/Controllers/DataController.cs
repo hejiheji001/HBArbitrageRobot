@@ -9,10 +9,68 @@ namespace Server.Controllers;
 public class DataController(DataStore dataStore, ILogger<DataController> logger, DataFetchService dataFetchService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<LofArbitrageResponse>> GetData(CancellationToken cancellationToken)
+    public async Task<ActionResult<LofArbitrageResponse>> GetData([FromQuery] string? from, CancellationToken cancellationToken)
     {
         var currentShanghaiTime = DataFetchService.GetShanghaiTime();
         
+        // If 'from' parameter is 'bot', apply time-based logic
+        if (from?.ToLowerInvariant() == "bot")
+        {
+            // Check if current time is before 14:15 Shanghai time
+            var targetTime = new TimeSpan(14, 15, 0);
+            var currentTime = currentShanghaiTime.TimeOfDay;
+            
+            if (currentTime < targetTime)
+            {
+                // Return empty result with custom header
+                Response.Headers.Append("X-Message", "please wait until 14:15 Shanghai time");
+                logger.LogInformation("Request from bot before 14:15 Shanghai time. Current time: {CurrentTime}. Returning empty result.", 
+                    currentShanghaiTime);
+                
+                return Ok(new LofArbitrageResponse
+                {
+                    FetchTime = currentShanghaiTime,
+                    DataCount = 0,
+                    Data = []
+                });
+            }
+            
+            // After 14:15, ensure cache is latest (from current date)
+            // If cache is not from today, trigger a fetch to update it
+            if (!dataStore.IsCacheValidForDate(currentShanghaiTime))
+            {
+                logger.LogInformation("Request from bot after 14:15. Cache is not from today. Fetching fresh data...");
+                
+                try
+                {
+                    await dataFetchService.TriggerManualFetchAsync(cancellationToken);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    logger.LogWarning("Fetch already in progress: {Message}. Will return current cache if available.", ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to fetch fresh data for bot request");
+                }
+            }
+            
+            // Return the current cache data (which should now be latest)
+            var botData = dataStore.GetCurrentLofData();
+            var botFetchTime = dataStore.GetCacheDateTime();
+            
+            logger.LogInformation("Returning data to bot. FetchTime: {FetchTime}, DataCount: {Count}", 
+                botFetchTime, botData?.Count ?? 0);
+            
+            return Ok(new LofArbitrageResponse
+            {
+                FetchTime = botFetchTime ?? currentShanghaiTime,
+                DataCount = botData?.Count ?? 0,
+                Data = botData ?? []
+            });
+        }
+        
+        // Original logic for non-bot requests
         // Check if cache is valid for current date
         if (dataStore.IsCacheValidForDate(currentShanghaiTime))
         {
