@@ -9,7 +9,8 @@ builder.Services.AddHttpClient();
 
 // Register our services
 builder.Services.AddSingleton<DataStore>();
-builder.Services.AddHostedService<DataFetchService>();
+builder.Services.AddSingleton<DataFetchService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<DataFetchService>());
 
 var app = builder.Build();
 

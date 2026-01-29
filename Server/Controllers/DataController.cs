@@ -10,11 +10,13 @@ public class DataController : ControllerBase
 {
     private readonly DataStore _dataStore;
     private readonly ILogger<DataController> _logger;
+    private readonly DataFetchService _dataFetchService;
 
-    public DataController(DataStore dataStore, ILogger<DataController> logger)
+    public DataController(DataStore dataStore, ILogger<DataController> logger, DataFetchService dataFetchService)
     {
         _dataStore = dataStore;
         _logger = logger;
+        _dataFetchService = dataFetchService;
     }
 
     [HttpGet]
@@ -29,5 +31,21 @@ public class DataController : ControllerBase
         }
 
         return Ok(data);
+    }
+
+    [HttpPost("fetch")]
+    public async Task<IActionResult> TriggerFetch()
+    {
+        _logger.LogInformation("Manual fetch triggered");
+        try
+        {
+            await _dataFetchService.FetchDataInternalAsync(CancellationToken.None);
+            return Ok(new { message = "Data fetch completed successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Manual fetch failed");
+            return StatusCode(500, new { message = "Data fetch failed", error = ex.Message });
+        }
     }
 }

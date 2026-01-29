@@ -16,6 +16,12 @@ public class DataFetchService : BackgroundService
         _logger = logger;
         _dataStore = dataStore;
         _httpClient = httpClientFactory.CreateClient();
+        
+        // Set user agent and headers to mimic a browser request
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        _httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+        _httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -68,62 +74,100 @@ public class DataFetchService : BackgroundService
 
     private async Task FetchDataAsync(CancellationToken cancellationToken)
     {
+        await FetchDataInternalAsync(cancellationToken);
+    }
+
+    public async Task FetchDataInternalAsync(CancellationToken cancellationToken)
+    {
         try
         {
-            _logger.LogInformation("Fetching data from example.com at {Time}", GetShanghaiTime());
+            _logger.LogInformation("Fetching data from jisilu.cn at {Time}", GetShanghaiTime());
 
-            var response = await _httpClient.GetAsync("http://example.com", cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            // Parse the content as JSON array of LOF arbitrage data
-            List<LofArbitrageData> lofData;
-            try
+            const string baseUrl = "https://www.jisilu.cn/data";
+            var lofUrls = new[]
             {
-                lofData = System.Text.Json.JsonSerializer.Deserialize<List<LofArbitrageData>>(content) ?? new List<LofArbitrageData>();
-                
-                // Set purchaseDate to current date in Shanghai timezone for all items
-                var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
-                foreach (var item in lofData)
+                "/lof/index_lof_list/?only_owned=&rp=25",
+                "/lof/stock_lof_list/?only_owned=&rp=25",
+                "/qdii/qdii_list/E?only_lof=y&rp=22",
+                "/qdii/qdii_list/C?rp=22"
+            };
+
+            var allFunds = new List<JisiluCell>();
+
+            // Fetch data from all LOF URLs
+            foreach (var lofUrl in lofUrls)
+            {
+                try
                 {
-                    if (item != null && item.LofArbitrage != null)
+                    // Generate timestamp parameter
+                    var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var timestampParam = $"___jsl=LST___t={timestamp}";
+                    var separator = lofUrl.Contains('?') ? "&" : "?";
+                    var fullUrl = $"{baseUrl}{lofUrl}{separator}{timestampParam}";
+
+                    _logger.LogInformation("Fetching from: {Url}", fullUrl);
+
+                    var response = await _httpClient.GetAsync(fullUrl, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var jisiluResponse = System.Text.Json.JsonSerializer.Deserialize<JisiluResponse>(content);
+
+                    if (jisiluResponse?.Rows != null)
                     {
-                        item.LofArbitrage.PurchaseDate = currentDate;
+                        _logger.LogInformation("Received {Count} rows from {Url}", jisiluResponse.Rows.Count, lofUrl);
+                        allFunds.AddRange(jisiluResponse.Rows.Select(r => r.Cell));
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse content as LOF data. Creating default entry.");
-                // If parsing fails, create a default entry with example data
-                lofData = new List<LofArbitrageData>
+                catch (Exception ex)
                 {
-                    new LofArbitrageData
-                    {
-                        LofFund = "161226",
-                        LofArbitrage = new LofArbitrage
-                        {
-                            PurchaseQuantity = "1",
-                            PurchaseDate = GetShanghaiTime().ToString("yyyy-MM-dd")
-                        },
-                        LofArbitrageStrategy = new LofArbitrageStrategy
-                        {
-                            PolicyType = 4,
-                            SellTime = "",
-                            SellStockPrice = "",
-                            TurnBack = ""
-                        }
-                    }
-                };
+                    _logger.LogError(ex, "Failed to fetch data from {Url}", lofUrl);
+                    // Continue with other URLs even if one fails
+                }
             }
 
+            // Filter funds: discount_rt > 10% AND redeem_status = "开放赎回"
+            var filteredFunds = allFunds.Where(fund =>
+            {
+                // Parse discount_rt (e.g., "41.74%" -> 41.74)
+                if (string.IsNullOrEmpty(fund.DiscountRt) || fund.DiscountRt == "-")
+                    return false;
+
+                var discountStr = fund.DiscountRt.Replace("%", "").Trim();
+                if (!decimal.TryParse(discountStr, out var discountValue))
+                    return false;
+
+                // Check if discount_rt > 10% AND redeem_status = "开放赎回"
+                return discountValue > 10m && fund.RedeemStatus == "开放赎回";
+            }).ToList();
+
+            _logger.LogInformation("Filtered {Count} funds with discount_rt > 10% and redeem_status = '开放赎回'", filteredFunds.Count);
+
+            // Convert to LofArbitrageData format
+            var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
+            var lofData = filteredFunds.Select(fund => new LofArbitrageData
+            {
+                LofFund = fund.FundId,
+                LofArbitrage = new LofArbitrage
+                {
+                    PurchaseQuantity = "1",
+                    PurchaseDate = currentDate
+                },
+                LofArbitrageStrategy = new LofArbitrageStrategy
+                {
+                    PolicyType = 4,
+                    SellTime = "",
+                    SellStockPrice = "",
+                    TurnBack = ""
+                }
+            }).ToList();
+
             _dataStore.UpdateLofData(lofData);
-            _logger.LogInformation("Data fetched successfully at {Time}, {Count} items", GetShanghaiTime(), lofData.Count);
+            _logger.LogInformation("Data fetched successfully at {Time}, {Count} items stored", GetShanghaiTime(), lofData.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch data from example.com");
+            _logger.LogError(ex, "Failed to fetch data from jisilu.cn");
         }
     }
 
