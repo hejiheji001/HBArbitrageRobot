@@ -1,0 +1,51 @@
+{
+  "profiles": {
+    "Client (Development)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "USERNAME": "your_username_here",
+        "PASSWORD": "your_password_here",
+        "PWD": "your_transaction_password_here",
+        "API_URL": "http://localhost:5000",
+        "PURCHASE_TIME": "14:15",
+        "MAX_INVESTMENT": "1000",
+        "HEADLESS": "false"
+      }
+    },
+    "Client (Production - Headless)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production",
+        "USERNAME": "your_username_here",
+        "PASSWORD": "your_password_here",
+        "PWD": "your_transaction_password_here",
+        "API_URL": "http://localhost:5000",
+        "PURCHASE_TIME": "14:15",
+        "MAX_INVESTMENT": "1000",
+        "HEADLESS": "true"
+      }
+    },
+    "Client (Docker Server)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "USERNAME": "your_username_here",
+        "PASSWORD": "your_password_here",
+        "PWD": "your_transaction_password_here",
+        "API_URL": "http://localhost:8080",
+        "PURCHASE_TIME": "14:15",
+        "MAX_INVESTMENT": "1000",
+        "HEADLESS": "false"
+      }
+    },
+    "Client (Command Line Args)": {
+      "commandName": "Project",
+      "commandLineArgs": "your_username your_password http://localhost:5000 your_transaction_password 14:15 1000",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "HEADLESS": "false"
+      }
+    }
+  }
+}
