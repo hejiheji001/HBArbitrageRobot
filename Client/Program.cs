@@ -4,9 +4,34 @@ using Client.Models;
 
 class Program
 {
+    // Interface for error notification - can be extended to webhook integration
+    private interface IErrorNotifier
+    {
+        Task NotifyAsync(string message, Exception? exception = null);
+    }
+    
+    // Console implementation of error notifier
+    private class ConsoleErrorNotifier : IErrorNotifier
+    {
+        public Task NotifyAsync(string message, Exception? exception = null)
+        {
+            Console.WriteLine($"\n❌ ERROR: {message}");
+            if (exception != null)
+            {
+                Console.WriteLine($"   Exception: {exception.Message}");
+                Console.WriteLine($"   Stack trace: {exception.StackTrace}");
+            }
+            // TODO: Integrate webhook notification here when needed
+            return Task.CompletedTask;
+        }
+    }
+    
+    private static readonly IErrorNotifier errorNotifier = new ConsoleErrorNotifier();
+
     static async Task Main(string[] args)
     {
         Console.WriteLine("HBArbitrageRobot Client Starting...");
+        Console.WriteLine("Running in continuous mode - will check for arbitrage opportunities periodically");
 
         // Parse arguments or environment variables for credentials
         var username = GetConfig(args, "USERNAME", 0);
@@ -28,6 +53,39 @@ class Program
 
         try
         {
+            // Main infinite loop
+            while (true)
+            {
+                Console.WriteLine("\n" + new string('=', 80));
+                Console.WriteLine($"Starting arbitrage cycle at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                Console.WriteLine(new string('=', 80));
+                
+                try
+                {
+                    await RunArbitrageCycleAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder);
+                }
+                catch (Exception ex)
+                {
+                    await errorNotifier.NotifyAsync("Error during arbitrage cycle", ex);
+                    Console.WriteLine("Will retry in the next cycle...");
+                }
+                
+                // Enter standby mode and wait until 14:20
+                await EnterStandbyModeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await errorNotifier.NotifyAsync("Fatal error in main loop", ex);
+            Environment.Exit(1);
+        }
+    }
+    
+    private static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, 
+        string purchaseTime, decimal maxInvestmentPerHolder)
+    {
+        try
+        {
             // Set Playwright to use running directory for browser installation if not already set
             // This prevents the default AppData location from being used
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
@@ -37,7 +95,28 @@ class Program
                 Console.WriteLine("Set PLAYWRIGHT_BROWSERS_PATH=0 (using running directory for browsers)");
             }
             
-            // Step 1: Launch browser and login
+            // Step 1: Fetch LOF arbitrage data from Server API first
+            Console.WriteLine($"\nFetching LOF arbitrage data from API: {apiUrl}/api/data");
+            
+            var (lofData, shouldWait) = await FetchLofDataFromApi(apiUrl);
+            
+            // Check if server returned empty with wait message
+            if (shouldWait)
+            {
+                Console.WriteLine("\n⏸️  Server indicated to wait. No arbitrage opportunities available now.");
+                Console.WriteLine("   Entering standby mode...");
+                return; // Exit to standby mode
+            }
+            
+            if (lofData == null || lofData.Count == 0)
+            {
+                Console.WriteLine("ℹ️  No LOF data available from API (but no wait message). Entering standby mode...");
+                return; // Exit to standby mode
+            }
+            
+            Console.WriteLine($"✓ Fetched {lofData.Count} LOF arbitrage items");
+            
+            // Step 2: Launch browser and login
             Console.WriteLine("\nInitializing Playwright...");
             
             IPlaywright? playwright = null;
@@ -108,13 +187,13 @@ class Program
                         else
                         {
                             Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
-                            return;
+                            throw;
                         }
                     }
                     else
                     {
-                        Console.WriteLine("\nPlaywright installation cancelled. Exiting...");
-                        return;
+                        Console.WriteLine("\nPlaywright installation cancelled.");
+                        throw;
                     }
                 }
                 catch (Exception)
@@ -137,7 +216,7 @@ class Program
                 var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
                 var page = await context.NewPageAsync();
 
-            // Step 2: Navigate to login page
+            // Step 3: Navigate to login page
             var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
             Console.WriteLine($"\nNavigating to login page: {loginUrl}");
             await page.GotoAsync(loginUrl);
@@ -145,7 +224,7 @@ class Program
             // Wait for page to load
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             
-            // Step 3: Perform login
+            // Step 4: Perform login
             Console.WriteLine("Attempting login...");
             
             try
@@ -188,7 +267,7 @@ class Program
                 Console.WriteLine("Continuing to navigate to main page...");
             }
 
-            // Step 4: Navigate to the main page after login
+            // Step 5: Navigate to the main page after login
             var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
             Console.WriteLine($"\nNavigating to main page: {mainUrl}");
             
@@ -251,21 +330,19 @@ class Program
                 Console.WriteLine("  - Network connectivity issues");
                 Console.WriteLine("  - The website may be blocking automated access");
                 Console.WriteLine($"\nCurrent page URL: {page.Url}");
-                Console.WriteLine("Please check if login was successful and try again.");
-                return;
+                throw new InvalidOperationException("Failed to navigate to main page", lastException);
             }
             
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             Console.WriteLine("Page URL: " + page.Url);
 
-            // Step 5: Fetch stock holder list from the API
+            // Step 6: Fetch stock holder list from the API
             Console.WriteLine("\nFetching stock holder list...");
             var stockHolderList = await FetchStockHolderList(page);
             
             if (stockHolderList.Count == 0)
             {
-                Console.WriteLine("Warning: No stock holders found. Cannot proceed with arbitrage creation.");
-                return;
+                throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
             }
             
             Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
@@ -274,19 +351,7 @@ class Program
                 Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
             }
 
-            // Step 6: Fetch LOF arbitrage data from Server API
-            Console.WriteLine($"\nFetching LOF arbitrage data from API: {apiUrl}/api/data");
-            var lofData = await FetchLofDataFromApi(apiUrl);
-            
-            if (lofData == null || lofData.Count == 0)
-            {
-                Console.WriteLine("Warning: No LOF data available from API.");
-                return;
-            }
-            
-            Console.WriteLine($"Fetched {lofData.Count} LOF arbitrage items");
-            
-            // Calculate total investment based on Amount field
+            // Step 7: Calculate total investment based on Amount field
             decimal totalInvestment = 0;
             
             Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
@@ -311,7 +376,7 @@ class Program
             Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
             Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
 
-            // Step 7: Create arbitrage request
+            // Step 8: Create arbitrage request
             var request = new CreateArbitrageRequest
             {
                 StockHolderList = stockHolderList,
@@ -325,22 +390,22 @@ class Program
             Console.WriteLine($"  - Purchase Time: {purchaseTime}");
             Console.WriteLine($"  - LOF Items: {lofData.Count}");
 
-            // Step 8: Send POST request to create arbitrage
+            // Step 9: Send POST request to create arbitrage
             var success = await CreateArbitrage(page, request);
             
             if (success)
             {
-                Console.WriteLine("\n✓ Arbitrage created successfully!");
+                Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
             }
             else
             {
-                Console.WriteLine("\n✗ Failed to create arbitrage. Check logs for details.");
+                throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
             }
 
             // Keep browser open for a moment to see the result
             if (!headless)
             {
-                Console.WriteLine("\nPress Enter to close browser...");
+                Console.WriteLine("\nPress Enter to continue to standby mode...");
                 Console.ReadLine();
             }
             else
@@ -350,12 +415,67 @@ class Program
             }
             } // Close using blocks
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"ERROR: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            Environment.Exit(1);
+            // Re-throw to be handled by the caller
+            throw;
         }
+    }
+    
+    private static async Task EnterStandbyModeAsync()
+    {
+        Console.WriteLine("\n" + new string('-', 80));
+        Console.WriteLine("Entering standby mode...");
+        
+        // Get Shanghai time (UTC+8)
+        TimeZoneInfo shanghaiTimeZone;
+        try
+        {
+            // Try Windows timezone ID first
+            shanghaiTimeZone = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            try
+            {
+                // Try IANA timezone ID (for Linux/Mac)
+                shanghaiTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Fallback: Create a custom timezone for UTC+8
+                Console.WriteLine("Warning: Shanghai timezone not found. Using UTC+8 offset.");
+                shanghaiTimeZone = TimeZoneInfo.CreateCustomTimeZone(
+                    "Shanghai Custom", 
+                    TimeSpan.FromHours(8), 
+                    "Shanghai Time", 
+                    "Shanghai Time");
+            }
+        }
+        
+        var currentTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, shanghaiTimeZone);
+        
+        // Target time is 14:20 today
+        var targetTime = new DateTime(currentTime.Year, currentTime.Month, currentTime.Day, 14, 20, 0);
+        
+        // If current time is already past 14:20, target next day's 14:20
+        if (currentTime >= targetTime)
+        {
+            targetTime = targetTime.AddDays(1);
+            Console.WriteLine($"Current time ({currentTime:HH:mm:ss}) is past today's 14:20. Will wait until tomorrow.");
+        }
+        
+        var waitDuration = targetTime - currentTime;
+        
+        Console.WriteLine($"Current Shanghai time: {currentTime:yyyy-MM-dd HH:mm:ss}");
+        Console.WriteLine($"Next arbitrage check: {targetTime:yyyy-MM-dd HH:mm:ss}");
+        Console.WriteLine($"Sleep duration: {waitDuration.Days} days, {waitDuration.Hours} hours, {waitDuration.Minutes} minutes, {waitDuration.Seconds} seconds");
+        Console.WriteLine(new string('-', 80));
+        
+        // Sleep until target time
+        await Task.Delay(waitDuration);
+        
+        Console.WriteLine($"\n⏰ Waking up at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
     }
 
     private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
@@ -409,7 +529,7 @@ class Program
         return [];
     }
 
-    private static async Task<List<LofArbitrageData>?> FetchLofDataFromApi(string baseUrl)
+    private static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
     {
         try
         {
@@ -418,23 +538,51 @@ class Program
             
             var response = await httpClient.GetAsync($"{baseUrl}/api/data");
             
+            // Check response headers for wait message
+            bool shouldWait = false;
+            if (response.Headers.TryGetValues("X-Wait-Message", out var waitMessages))
+            {
+                var waitMessage = waitMessages.FirstOrDefault();
+                if (!string.IsNullOrEmpty(waitMessage))
+                {
+                    Console.WriteLine($"Server wait message: {waitMessage}");
+                    shouldWait = true;
+                }
+            }
+            
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
+                var data = JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
+                
+                // If data is empty or null, check if we should wait
+                if ((data == null || data.Count == 0) && shouldWait)
+                {
+                    return (null, true);
+                }
+                
+                return (data, false);
             }
             else
             {
                 Console.WriteLine($"API returned status code: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error content: {errorContent}");
-                return null;
+                
+                // Check if error content suggests waiting
+                if (errorContent.Contains("wait", StringComparison.OrdinalIgnoreCase) || 
+                    errorContent.Contains("in progress", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (null, true);
+                }
+                
+                return (null, shouldWait);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to fetch data from API: {ex.Message}");
-            return null;
+            return (null, false);
         }
     }
 
