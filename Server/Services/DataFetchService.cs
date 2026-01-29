@@ -228,19 +228,10 @@ public class DataFetchService : BackgroundService
             var lofData = filteredFunds.Select(fund => new LofArbitrageData
             {
                 LofFund = fund.FundId,
+                Name = fund.FundNm,
                 ApplyStatus = fund.ApplyStatus,
-                LofArbitrage = new LofArbitrage
-                {
-                    PurchaseQuantity = "1",
-                    PurchaseDate = currentDate
-                },
-                LofArbitrageStrategy = new LofArbitrageStrategy
-                {
-                    PolicyType = 4,
-                    SellTime = "",
-                    SellStockPrice = "",
-                    TurnBack = ""
-                }
+                Amount = ConvertApplyStatusToAmount(fund.ApplyStatus),
+                PurchaseDate = currentDate
             }).ToList();
 
             // Update data store with datetime even if the list is empty (to indicate fetch completed)
@@ -273,5 +264,62 @@ public class DataFetchService : BackgroundService
             // Fallback: China is UTC+8
             return DateTime.UtcNow.AddHours(8);
         }
+    }
+
+    private static decimal ConvertApplyStatusToAmount(string applyStatus)
+    {
+        if (string.IsNullOrEmpty(applyStatus))
+        {
+            return 10000m;
+        }
+
+        // Handle "开放申购" (open for subscription) - means unlimited
+        if (applyStatus.Contains("开放"))
+        {
+            return 10000m;
+        }
+
+        try
+        {
+            // Try to match patterns like "限10", "限1万", "限1千"
+            var match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"限(\d+(?:\.\d+)?)(万|千)?");
+            
+            if (match.Success)
+            {
+                var numberStr = match.Groups[1].Value;
+                var unit = match.Groups[2].Value;
+                
+                if (decimal.TryParse(numberStr, out var number))
+                {
+                    // Apply multiplier based on unit
+                    if (unit == "万")
+                    {
+                        return number * 10000m; // 1万 = 10,000 yuan
+                    }
+                    else if (unit == "千")
+                    {
+                        return number * 1000m; // 1千 = 1,000 yuan
+                    }
+                    else
+                    {
+                        return number; // Just the number (e.g., "限10" = 10 yuan)
+                    }
+                }
+            }
+
+            // Fallback: try to extract first number
+            match = System.Text.RegularExpressions.Regex.Match(applyStatus, @"(\d+(?:\.\d+)?)");
+            if (match.Success && decimal.TryParse(match.Groups[1].Value, out var fallback))
+            {
+                return fallback;
+            }
+        }
+        catch (Exception)
+        {
+            // If parsing fails, return 10000 (unlimited)
+        }
+
+        // Default to 10000 for unlimited/unknown cases
+        return 10000m;
     }
 }
