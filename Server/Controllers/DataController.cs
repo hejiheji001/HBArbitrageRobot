@@ -9,7 +9,7 @@ namespace Server.Controllers;
 public class DataController(DataStore dataStore, ILogger<DataController> logger, DataFetchService dataFetchService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<LofArbitrageData>>> GetData(CancellationToken cancellationToken)
+    public async Task<ActionResult<LofArbitrageResponse>> GetData(CancellationToken cancellationToken)
     {
         var currentShanghaiTime = DataFetchService.GetShanghaiTime();
         
@@ -22,12 +22,12 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
             logger.LogInformation("Returning cached data from {CacheDateTime} (same day as {CurrentTime})", 
                 cacheDateTime, currentShanghaiTime);
             
-            if (cachedData == null || cachedData.Count == 0)
+            return Ok(new LofArbitrageResponse
             {
-                return Ok(new List<LofArbitrageData>());
-            }
-            
-            return Ok(cachedData);
+                FetchTime = cacheDateTime ?? currentShanghaiTime,
+                DataCount = cachedData?.Count ?? 0,
+                Data = cachedData ?? []
+            });
         }
         
         // Cache is not valid (different day or no cache), fetch new data
@@ -37,26 +37,33 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
         {
             await dataFetchService.TriggerManualFetchAsync(cancellationToken);
             var freshData = dataStore.GetCurrentLofData();
+            var fetchTime = dataStore.GetCacheDateTime();
             
-            if (freshData == null || freshData.Count == 0)
+            return Ok(new LofArbitrageResponse
             {
-                return Ok(new List<LofArbitrageData>());
-            }
-            
-            return Ok(freshData);
+                FetchTime = fetchTime ?? currentShanghaiTime,
+                DataCount = freshData?.Count ?? 0,
+                Data = freshData ?? []
+            });
         }
         catch (InvalidOperationException ex)
         {
             // Fetch already in progress, return current cached data if available
             logger.LogWarning("Fetch already in progress: {Message}. Returning current cached data.", ex.Message);
             var currentData = dataStore.GetCurrentLofData();
+            var currentFetchTime = dataStore.GetCacheDateTime();
             
             if (currentData == null || currentData.Count == 0)
             {
                 return NotFound(new { message = "Data fetch in progress. Please try again in a moment." });
             }
             
-            return Ok(currentData);
+            return Ok(new LofArbitrageResponse
+            {
+                FetchTime = currentFetchTime ?? currentShanghaiTime,
+                DataCount = currentData.Count,
+                Data = currentData
+            });
         }
         catch (Exception ex)
         {
@@ -64,10 +71,17 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
             
             // Try to return cached data even if it's old
             var fallbackData = dataStore.GetCurrentLofData();
+            var fallbackFetchTime = dataStore.GetCacheDateTime();
+            
             if (fallbackData != null && fallbackData.Count > 0)
             {
                 logger.LogWarning("Returning stale cached data due to fetch failure");
-                return Ok(fallbackData);
+                return Ok(new LofArbitrageResponse
+                {
+                    FetchTime = fallbackFetchTime ?? currentShanghaiTime,
+                    DataCount = fallbackData.Count,
+                    Data = fallbackData
+                });
             }
             
             return NotFound(new { message = "No data available and fetch failed. Data is fetched daily at 14:00 Shanghai time." });
