@@ -14,8 +14,8 @@ A .NET 10 application with Server and Client components for automated arbitrage 
   - Built with ASP.NET Core Web API
 
 - **Client Component**:
-  - Playwright-based browser automation
-  - Automated login to touker.com
+  - Playwright-based browser automation with mobile device emulation (iPhone 13 Pro)
+  - Automated login to touker.com mobile site
   - Fetches stock holder list from touker.com API
   - Reads LOF arbitrage data from Server API
   - Creates arbitrage orders via touker.com API
@@ -456,6 +456,7 @@ dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
 - The Client runs once and exits after completing its task (not configured to restart automatically in Docker)
+- The Client uses mobile device emulation (iPhone 13 Pro) to properly render and interact with touker.com mobile pages
 - Login selectors in the Client may need adjustment based on the actual touker.com page structure
 - For production use, ensure proper security measures for credential management:
   - Never commit the `.env` file to version control
