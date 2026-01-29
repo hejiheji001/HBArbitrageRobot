@@ -237,7 +237,7 @@ class Program
                 
                 if (data?.Success == true && data.Result != null)
                 {
-                    return data.Result.Select(s => s.StockHolderNo).ToList();
+                    return [.. data.Result.Select(s => s.StockHolderNo)];
                 }
             }
             else

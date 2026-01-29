@@ -13,14 +13,14 @@ public class DataStore
         lock (_lock)
         {
             // Create a defensive copy when storing
-            _currentLofData = data.Select(d => new LofArbitrageData
+            _currentLofData = [.. data.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
                 Name = d.Name,
                 ApplyStatus = d.ApplyStatus,
                 Amount = d.Amount,
                 PurchaseDate = d.PurchaseDate
-            }).ToList();
+            })];
             
             _cacheDateTime = fetchDateTime;
         }
@@ -33,14 +33,14 @@ public class DataStore
             // Return a copy to prevent external modifications
             if (_currentLofData == null) return null;
             
-            return _currentLofData.Select(d => new LofArbitrageData
+            return [.. _currentLofData.Select(d => new LofArbitrageData
             {
                 LofFund = d.LofFund,
                 Name = d.Name,
                 ApplyStatus = d.ApplyStatus,
                 Amount = d.Amount,
                 PurchaseDate = d.PurchaseDate
-            }).ToList();
+            })];
         }
     }
 
