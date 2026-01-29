@@ -8,6 +8,9 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 
+// Add MemoryCache
+builder.Services.AddMemoryCache();
+
 // Register our services
 builder.Services.AddSingleton<DataStore>();
 builder.Services.AddSingleton<DataFetchService>();

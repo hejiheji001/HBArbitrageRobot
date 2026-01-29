@@ -1,68 +1,70 @@
+using Microsoft.Extensions.Caching.Memory;
 using Server.Models;
 
 namespace Server.Services;
 
-public class DataStore
+/// <summary>
+/// Stores LOF arbitrage data with associated fetch timestamp
+/// </summary>
+public record CachedLofData(List<LofArbitrageData> Data, DateTime FetchDateTime);
+
+public class DataStore(IMemoryCache cache)
 {
-    private List<LofArbitrageData>? _currentLofData;
-    private DateTime? _cacheDateTime;
-    private readonly Lock _lock = new();
+    private const string CacheKey = "LofArbitrageDataWithTimestamp";
 
     public void UpdateLofData(List<LofArbitrageData> data, DateTime fetchDateTime)
     {
-        lock (_lock)
+        // Create a defensive copy when storing
+        var dataCopy = data.Select(d => new LofArbitrageData
         {
-            // Create a defensive copy when storing
-            _currentLofData = [.. data.Select(d => new LofArbitrageData
-            {
-                LofFund = d.LofFund,
-                Name = d.Name,
-                ApplyStatus = d.ApplyStatus,
-                Amount = d.Amount,
-                PurchaseDate = d.PurchaseDate
-            })];
-            
-            _cacheDateTime = fetchDateTime;
-        }
+            LofFund = d.LofFund,
+            Name = d.Name,
+            ApplyStatus = d.ApplyStatus,
+            Amount = d.Amount,
+            PurchaseDate = d.PurchaseDate
+        }).ToList();
+
+        // Store both data and timestamp atomically in a single cache entry
+        var cachedData = new CachedLofData(dataCopy, fetchDateTime);
+        cache.Set(CacheKey, cachedData, new MemoryCacheEntryOptions
+        {
+            Priority = CacheItemPriority.NeverRemove
+        });
     }
 
     public List<LofArbitrageData>? GetCurrentLofData()
     {
-        lock (_lock)
+        // Get data from cache and return a defensive copy
+        if (!cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) || cachedData == null)
+            return null;
+
+        return cachedData.Data.Select(d => new LofArbitrageData
         {
-            // Return a copy to prevent external modifications
-            if (_currentLofData == null) return null;
-            
-            return [.. _currentLofData.Select(d => new LofArbitrageData
-            {
-                LofFund = d.LofFund,
-                Name = d.Name,
-                ApplyStatus = d.ApplyStatus,
-                Amount = d.Amount,
-                PurchaseDate = d.PurchaseDate
-            })];
-        }
+            LofFund = d.LofFund,
+            Name = d.Name,
+            ApplyStatus = d.ApplyStatus,
+            Amount = d.Amount,
+            PurchaseDate = d.PurchaseDate
+        }).ToList();
     }
 
     public DateTime? GetCacheDateTime()
     {
-        lock (_lock)
-        {
-            return _cacheDateTime;
-        }
+        return cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) && cachedData != null
+            ? cachedData.FetchDateTime
+            : null;
     }
 
     public bool IsCacheValidForDate(DateTime currentDate)
     {
-        lock (_lock)
-        {
-            if (_cacheDateTime == null || _currentLofData == null)
-                return false;
+        if (!cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) || cachedData == null)
+            return false;
 
-            // Check if cache is from the same day (year, month, day)
-            return _cacheDateTime.Value.Year == currentDate.Year &&
-                   _cacheDateTime.Value.Month == currentDate.Month &&
-                   _cacheDateTime.Value.Day == currentDate.Day;
-        }
+        var cacheDateTime = cachedData.FetchDateTime;
+        
+        // Check if cache is from the same day (year, month, day)
+        return cacheDateTime.Year == currentDate.Year &&
+               cacheDateTime.Month == currentDate.Month &&
+               cacheDateTime.Day == currentDate.Day;
     }
 }
