@@ -317,7 +317,7 @@ Forces a fresh fetch regardless of cache status.
 
 ## Client Workflow
 
-The Client performs the following automated workflow:
+The Client performs the following automated workflow in a continuous loop:
 
 1. **Login**: Authenticates to touker.com using provided credentials
 2. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
@@ -337,6 +337,13 @@ The Client performs the following automated workflow:
    - Purchase time (default: 14:15)
    - LOF fund configurations
    - Transaction password
+6. **Retry/Continue**: After completion (success or failure), waits for the configured retry delay (default: 60 seconds) and repeats the workflow
+
+**Error Handling:**
+- The client will **never exit** when errors or exceptions occur
+- All errors are logged and the client automatically retries after the configured delay
+- This ensures continuous operation even when temporary issues occur (network errors, API failures, etc.)
+- Configure retry delay using `RETRY_DELAY_SECONDS` environment variable or command-line argument
 
 ### Investment Calculation Example
 
@@ -402,6 +409,7 @@ The client supports configuration via:
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
+   - `RETRY_DELAY_SECONDS`: Delay in seconds between retry attempts after errors or successful completions (default: 60)
    - `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT`: Set to `Development` to show browser UI by default
    - `HEADLESS`: Run browser in headless mode 
      - When `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` is `Development`: defaults to `false` (UI visible)
@@ -488,7 +496,10 @@ dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
 ## Notes
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
-- The Client runs once and exits after completing its task (not configured to restart automatically in Docker)
+- The Client runs continuously in a loop and **never exits**, even when errors occur
+  - After each workflow completion (success or failure), it waits for the configured retry delay (default: 60 seconds) and repeats
+  - All errors are automatically recovered, logged, and retried
+  - This ensures the client maintains continuous operation and can recover from temporary issues
 - The Client uses mobile device emulation (iPhone 13 Pro) to properly render and interact with touker.com mobile pages
 - Login selectors in the Client may need adjustment based on the actual touker.com page structure
 - For production use, ensure proper security measures for credential management:

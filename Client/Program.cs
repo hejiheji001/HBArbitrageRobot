@@ -16,6 +16,9 @@ class Program
         
         // Configurable max investment per stock holder per fund (in yuan)
         var maxInvestmentPerHolder = decimal.Parse(GetConfig(args, "MAX_INVESTMENT", 5, "1000"));
+        
+        // Configurable retry delay in seconds (default: 60 seconds)
+        var retryDelaySeconds = int.Parse(GetConfig(args, "RETRY_DELAY_SECONDS", 6, "60"));
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
@@ -23,9 +26,36 @@ class Program
             Console.WriteLine("Usage:");
             Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time]");
             Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME environment variables");
+            Console.WriteLine("\nWaiting before retrying...");
+            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            // Don't exit - configuration might be available on next retry
+            await Main(args); // Recursive retry
             return;
         }
 
+        // Infinite loop to handle errors and retry
+        while (true)
+        {
+            try
+            {
+                await RunArbitrageWorkflowAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder);
+                
+                // If successful, wait and retry
+                Console.WriteLine($"\n✓ Workflow completed successfully. Waiting {retryDelaySeconds} seconds before next run...");
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n✗ ERROR: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"\nRecovering from error. Waiting {retryDelaySeconds} seconds before retry...");
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+        }
+    }
+
+    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder)
+    {
         try
         {
             // Set Playwright to use running directory for browser installation if not already set
@@ -108,13 +138,13 @@ class Program
                         else
                         {
                             Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
-                            return;
+                            throw new InvalidOperationException($"Failed to install Playwright browsers. Exit code: {exitCode}");
                         }
                     }
                     else
                     {
-                        Console.WriteLine("\nPlaywright installation cancelled. Exiting...");
-                        return;
+                        Console.WriteLine("\nPlaywright installation cancelled.");
+                        throw new InvalidOperationException("Playwright installation cancelled by user");
                     }
                 }
                 catch (Exception)
@@ -251,8 +281,8 @@ class Program
                 Console.WriteLine("  - Network connectivity issues");
                 Console.WriteLine("  - The website may be blocking automated access");
                 Console.WriteLine($"\nCurrent page URL: {page.Url}");
-                Console.WriteLine("Please check if login was successful and try again.");
-                return;
+                Console.WriteLine("Please check if login was successful.");
+                throw new InvalidOperationException($"Failed to navigate to main page after {maxRetries} attempts: {lastException?.Message}");
             }
             
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
@@ -265,7 +295,7 @@ class Program
             if (stockHolderList.Count == 0)
             {
                 Console.WriteLine("Warning: No stock holders found. Cannot proceed with arbitrage creation.");
-                return;
+                throw new InvalidOperationException("No stock holders found");
             }
             
             Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
@@ -281,7 +311,7 @@ class Program
             if (lofData == null || lofData.Count == 0)
             {
                 Console.WriteLine("Warning: No LOF data available from API.");
-                return;
+                throw new InvalidOperationException("No LOF data available from API");
             }
             
             Console.WriteLine($"Fetched {lofData.Count} LOF arbitrage items");
@@ -340,7 +370,7 @@ class Program
             // Keep browser open for a moment to see the result
             if (!headless)
             {
-                Console.WriteLine("\nPress Enter to close browser...");
+                Console.WriteLine("\nPress Enter to continue to next cycle...");
                 Console.ReadLine();
             }
             else
@@ -352,9 +382,8 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            Environment.Exit(1);
+            // Let exception bubble up to be caught by the main loop
+            throw new InvalidOperationException($"Workflow failed: {ex.Message}", ex);
         }
     }
 
