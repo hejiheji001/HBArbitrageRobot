@@ -9,39 +9,49 @@ string? pathBase = null;
 var urls = builder.Configuration["ASPNETCORE_URLS"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 if (!string.IsNullOrEmpty(urls))
 {
-    var urlParts = urls.Split(';');
+    var urlList = urls.Split(';');
     var updatedUrls = new List<string>();
     
-    foreach (var url in urlParts)
+    foreach (var url in urlList)
     {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        var trimmedUrl = url.Trim();
+        if (Uri.TryCreate(trimmedUrl, UriKind.Absolute, out var uri))
         {
             if (!string.IsNullOrEmpty(uri.AbsolutePath) && uri.AbsolutePath != "/")
             {
-                // Extract path base from first URL
+                // Extract path base from first URL (all URLs should have the same path base)
                 if (pathBase == null)
                 {
                     pathBase = uri.AbsolutePath;
                 }
-                // Remove path from URL
-                var urlWithoutPath = $"{uri.Scheme}://{uri.Authority}";
-                updatedUrls.Add(urlWithoutPath);
+                else if (pathBase != uri.AbsolutePath)
+                {
+                    // Log warning if multiple different path bases are detected
+                    Console.WriteLine($"Warning: Multiple different path bases detected. Using '{pathBase}' for all URLs.");
+                }
+                
+                // Reconstruct URL without path using UriBuilder
+                var uriBuilder = new UriBuilder(uri)
+                {
+                    Path = string.Empty
+                };
+                updatedUrls.Add(uriBuilder.Uri.ToString().TrimEnd('/'));
             }
             else
             {
-                updatedUrls.Add(url);
+                updatedUrls.Add(trimmedUrl);
             }
         }
         else
         {
-            updatedUrls.Add(url);
+            // Keep non-parseable URLs (like http://+:8080) as-is
+            updatedUrls.Add(trimmedUrl);
         }
     }
     
-    // Update URLs without path bases
+    // Configure Kestrel to use URLs without path bases
     if (pathBase != null)
     {
-        Environment.SetEnvironmentVariable("ASPNETCORE_URLS", string.Join(";", updatedUrls));
         builder.WebHost.UseUrls(updatedUrls.ToArray());
     }
 }
