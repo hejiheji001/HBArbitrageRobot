@@ -20,27 +20,90 @@ public class DataController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<List<LofArbitrageData>> GetData()
+    public async Task<ActionResult<List<LofArbitrageData>>> GetData(CancellationToken cancellationToken)
     {
-        var data = _dataStore.GetCurrentLofData();
-
-        if (data == null || data.Count == 0)
+        var currentShanghaiTime = DataFetchService.GetCurrentShanghaiTime();
+        
+        // Check if cache is valid for current date
+        if (_dataStore.IsCacheValidForDate(currentShanghaiTime))
         {
-            _logger.LogWarning("No data available yet");
-            return NotFound(new { message = "No data available yet. Data is fetched daily at 14:00 Shanghai time." });
+            var cachedData = _dataStore.GetCurrentLofData();
+            var cacheDateTime = _dataStore.GetCacheDateTime();
+            
+            _logger.LogInformation("Returning cached data from {CacheDateTime} (same day as {CurrentTime})", 
+                cacheDateTime, currentShanghaiTime);
+            
+            if (cachedData == null || cachedData.Count == 0)
+            {
+                return Ok(new List<LofArbitrageData>());
+            }
+            
+            return Ok(cachedData);
         }
-
-        return Ok(data);
+        
+        // Cache is not valid (different day or no cache), fetch new data
+        _logger.LogInformation("Cache invalid or from different day. Fetching new data...");
+        
+        try
+        {
+            await _dataFetchService.TriggerManualFetchAsync(cancellationToken);
+            var freshData = _dataStore.GetCurrentLofData();
+            
+            if (freshData == null || freshData.Count == 0)
+            {
+                return Ok(new List<LofArbitrageData>());
+            }
+            
+            return Ok(freshData);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Fetch already in progress, return current cached data if available
+            _logger.LogWarning("Fetch already in progress: {Message}. Returning current cached data.", ex.Message);
+            var currentData = _dataStore.GetCurrentLofData();
+            
+            if (currentData == null || currentData.Count == 0)
+            {
+                return NotFound(new { message = "Data fetch in progress. Please try again in a moment." });
+            }
+            
+            return Ok(currentData);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch fresh data");
+            
+            // Try to return cached data even if it's old
+            var fallbackData = _dataStore.GetCurrentLofData();
+            if (fallbackData != null && fallbackData.Count > 0)
+            {
+                _logger.LogWarning("Returning stale cached data due to fetch failure");
+                return Ok(fallbackData);
+            }
+            
+            return NotFound(new { message = "No data available and fetch failed. Data is fetched daily at 14:00 Shanghai time." });
+        }
     }
 
     [HttpPost("fetch")]
-    public async Task<IActionResult> TriggerFetch(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<LofArbitrageData>>> TriggerFetch(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Manual fetch triggered");
         try
         {
             await _dataFetchService.TriggerManualFetchAsync(cancellationToken);
-            return Ok(new { message = "Data fetch completed successfully" });
+            
+            // Return the latest fetched data
+            var latestData = _dataStore.GetCurrentLofData();
+            var cacheDateTime = _dataStore.GetCacheDateTime();
+            
+            return Ok(new 
+            { 
+                message = "Data fetch completed successfully",
+                fetchTime = cacheDateTime,
+                dataCount = latestData?.Count ?? 0,
+                data = latestData ?? new List<LofArbitrageData>()
+            });
         }
         catch (InvalidOperationException ex)
         {

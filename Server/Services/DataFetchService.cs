@@ -223,7 +223,8 @@ public class DataFetchService : BackgroundService
                 allFunds.Count, filteredFunds.Count, MIN_DISCOUNT_RATE, APPLY_STATUS_SUSPENDED);
 
             // Convert to LofArbitrageData format
-            var currentDate = GetShanghaiTime().ToString("yyyy-MM-dd");
+            var fetchDateTime = GetShanghaiTime();
+            var currentDate = fetchDateTime.ToString("yyyy-MM-dd");
             var lofData = filteredFunds.Select(fund => new LofArbitrageData
             {
                 LofFund = fund.FundId,
@@ -241,8 +242,8 @@ public class DataFetchService : BackgroundService
                 }
             }).ToList();
 
-            // Update data store even if the list is empty (to indicate fetch completed)
-            _dataStore.UpdateLofData(lofData);
+            // Update data store with datetime even if the list is empty (to indicate fetch completed)
+            _dataStore.UpdateLofData(lofData, fetchDateTime);
             
             if (lofData.Count == 0)
             {
@@ -271,5 +272,10 @@ public class DataFetchService : BackgroundService
             // Fallback: China is UTC+8
             return DateTime.UtcNow.AddHours(8);
         }
+    }
+
+    public static DateTime GetCurrentShanghaiTime()
+    {
+        return GetShanghaiTime();
     }
 }
