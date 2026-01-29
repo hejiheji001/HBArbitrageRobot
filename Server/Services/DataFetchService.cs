@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Server.Services;
 
-public class DataFetchService(
+public partial class DataFetchService(
     ILogger<DataFetchService> logger,
     DataStore dataStore,
     IHttpClientFactory httpClientFactory) : BackgroundService
@@ -16,7 +16,7 @@ public class DataFetchService(
     private const decimal UNLIMITED_AMOUNT = 10000m;
     
     // Regex pattern for parsing ApplyStatus (e.g., "限10", "限1万", "限1千")
-    private static readonly Regex ApplyStatusWithUnitRegex = new(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled);
+    private static readonly Regex ApplyStatusWithUnitRegex = InvestAmountRegex();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -318,4 +318,7 @@ public class DataFetchService(
         // Default to 10000 for unlimited/unknown cases per requirements
         return UNLIMITED_AMOUNT;
     }
+
+    [GeneratedRegex(@"限(\d+(?:\.\d+)?)(万|千)?", RegexOptions.Compiled)]
+    private static partial Regex InvestAmountRegex();
 }

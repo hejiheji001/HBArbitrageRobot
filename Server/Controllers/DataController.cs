@@ -73,36 +73,4 @@ public class DataController(DataStore dataStore, ILogger<DataController> logger,
             return NotFound(new { message = "No data available and fetch failed. Data is fetched daily at 14:00 Shanghai time." });
         }
     }
-
-    [HttpPost("fetch")]
-    public async Task<IActionResult> TriggerFetch(CancellationToken cancellationToken)
-    {
-        logger.LogInformation("Manual fetch triggered");
-        try
-        {
-            await dataFetchService.TriggerManualFetchAsync(cancellationToken);
-            
-            // Return the latest fetched data
-            var latestData = dataStore.GetCurrentLofData();
-            var cacheDateTime = dataStore.GetCacheDateTime();
-            
-            return Ok(new 
-            { 
-                message = "Data fetch completed successfully",
-                fetchTime = cacheDateTime,
-                dataCount = latestData?.Count ?? 0,
-                data = latestData ?? []
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            logger.LogWarning("Manual fetch rejected: {Message}", ex.Message);
-            return Conflict(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Manual fetch failed");
-            return StatusCode(500, new { message = "Data fetch failed. Please try again later." });
-        }
-    }
 }
