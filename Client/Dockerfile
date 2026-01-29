@@ -35,7 +35,9 @@ RUN apt-get update && apt-get install -y \
 
 # Install Playwright browsers and dependencies
 # The playwright.ps1 script is included with Microsoft.Playwright package in the publish output
-RUN pwsh /app/playwright.ps1 install --with-deps chromium \
+# First install system dependencies, then install the browser
+RUN pwsh /app/playwright.ps1 install-deps chromium \
+    && pwsh /app/playwright.ps1 install chromium \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
