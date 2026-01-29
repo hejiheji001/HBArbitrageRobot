@@ -421,7 +421,8 @@ class Program
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
+                var apiResponse = JsonConvert.DeserializeObject<LofArbitrageResponse>(json);
+                return apiResponse?.Data;
             }
             else
             {
