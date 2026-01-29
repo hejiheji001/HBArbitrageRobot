@@ -168,6 +168,7 @@ Returns LOF arbitrage data from jisilu.cn with intelligent caching:
 [
   {
     "lofFund": "160416",
+    "applyStatus": "限10",
     "lofArbitrage": {
       "purchaseQuantity": "1",
       "purchaseDate": "2026-01-29"
@@ -208,6 +209,7 @@ Forces a fresh fetch regardless of cache status.
   "data": [
     {
       "lofFund": "160416",
+      "applyStatus": "限10",
       "lofArbitrage": {
         "purchaseQuantity": "1",
         "purchaseDate": "2026-01-29"
@@ -244,11 +246,22 @@ The Client performs the following automated workflow:
 1. **Login**: Authenticates to touker.com using provided credentials
 2. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
 3. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
-4. **Create Arbitrage**: Sends POST request to `createLofArbitrage.do` with:
+4. **Calculate Investment**: For each LOF fund, calculates total investment amount:
+   - Parses `applyStatus` to extract numeric limit (e.g., "限10" → 10, "限100" → 100)
+   - Calculates investment per fund: `number_of_stockholders × apply_status_limit`
+   - Displays total investment amount across all funds
+5. **Create Arbitrage**: Sends POST request to `createLofArbitrage.do` with:
    - Stock holder list
    - Purchase time (default: 14:15)
    - LOF fund configurations
    - Transaction password
+
+### Investment Calculation Example
+
+With 3 stock holders and LOF funds:
+- Fund A: apply_status = "限10" → 3 × 10 = 30 (万元)
+- Fund B: apply_status = "限100" → 3 × 100 = 300 (万元)
+- Total Investment: 330 (万元)
 
 ## Configuration
 
