@@ -337,6 +337,15 @@ The server automatically fetches data from jisilu.cn at 14:00 Shanghai time dail
 - QDII list (E type, LOF only)
 - QDII list (C type)
 
+**Path Base Support (.NET 10 Compatibility):**
+- The server supports path base configuration for hosting at custom paths (e.g., `/myapi`)
+- Path bases can be specified in `ASPNETCORE_URLS` environment variable (e.g., `http://+:8080/myapi`)
+- The path base is automatically extracted and configured using `UsePathBase()` middleware
+- This ensures .NET 10 compatibility which requires path bases to be configured via middleware
+- Example: `ASPNETCORE_URLS="http://localhost:8080/myapi"` will host the API at `http://localhost:8080/myapi/api/data`
+  - Note: The application's API routes already use `/api` prefix, so with path base `/myapi`, endpoints become `/myapi/api/...`
+- If multiple URLs with different path bases are provided, the first path base is used for all URLs
+
 **Data Caching:**
 - Fetched data is cached with a timestamp (Shanghai time)
 - Cache is validated by date (year, month, day)
