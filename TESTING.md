@@ -31,14 +31,14 @@ This guide explains how to test both the Server and Client components of the HBA
    In a new terminal, test the `/api/data` endpoint:
    
    ```bash
-   # Test with curl
+   # Test GET endpoint - will fetch data on first call
    curl http://localhost:5290/api/data
    
-   # Manually trigger a data fetch for testing
+   # Test GET again - will return cached data from same day
+   curl http://localhost:5290/api/data
+   
+   # Manually trigger a fresh fetch and get data back
    curl -X POST http://localhost:5290/api/data/fetch
-   
-   # Check the fetched data
-   curl http://localhost:5290/api/data
    
    # Or with wget
    wget -qO- http://localhost:5290/api/data
@@ -47,21 +47,7 @@ This guide explains how to test both the Server and Client components of the HBA
    http http://localhost:5290/api/data
    ```
    
-   **Expected Response (before data is fetched):**
-   ```json
-   {
-     "message": "No data available yet. Data is fetched daily at 14:00 Shanghai time."
-   }
-   ```
-   
-   **Expected Response (after manual fetch trigger):**
-   ```json
-   {
-     "message": "Data fetch completed successfully"
-   }
-   ```
-   
-   **Expected Response (after data is available):**
+   **Expected Response (GET /api/data - first call, triggers fetch):**
    ```json
    [
      {
@@ -79,6 +65,55 @@ This guide explains how to test both the Server and Client components of the HBA
      }
    ]
    ```
+   
+   **Expected Response (GET /api/data - subsequent calls same day, returns cache):**
+   ```json
+   [
+     {
+       "lofFund": "160416",
+       "lofArbitrage": {
+         "purchaseQuantity": "1",
+         "purchaseDate": "2026-01-29"
+       },
+       "lofArbitrageStrategy": {
+         "policyType": 4,
+         "sellTime": "",
+         "sellStockPrice": "",
+         "turnBack": ""
+       }
+     }
+   ]
+   ```
+   
+   **Expected Response (POST /api/data/fetch - testing endpoint):**
+   ```json
+   {
+     "message": "Data fetch completed successfully",
+     "fetchTime": "2026-01-29T14:00:00",
+     "dataCount": 1,
+     "data": [
+       {
+         "lofFund": "160416",
+         "lofArbitrage": {
+           "purchaseQuantity": "1",
+           "purchaseDate": "2026-01-29"
+         },
+         "lofArbitrageStrategy": {
+           "policyType": 4,
+           "sellTime": "",
+           "sellStockPrice": "",
+           "turnBack": ""
+         }
+       }
+     ]
+   }
+   ```
+   
+   **Caching Behavior:**
+   - First GET call: Fetches data and caches it (may take 30+ seconds)
+   - Subsequent GET calls (same day): Returns cached data instantly
+   - Next day GET call: Automatically fetches fresh data and updates cache
+   - POST fetch: Always fetches fresh data and returns it with metadata
    
    Note: The actual data will vary based on the current LOF funds from jisilu.cn that meet the filtering criteria (discount_rt > 10% and apply_status != "暂停申购").
 
@@ -181,16 +216,23 @@ The Client requires:
 ### Using curl
 
 ```bash
-# Get LOF arbitrage data
+# Get LOF arbitrage data (cached if same day)
 curl -X GET http://localhost:5290/api/data \
   -H "Content-Type: application/json" | jq .
 
-# Manually trigger a data fetch
+# Manually trigger a fresh data fetch and get results
 curl -X POST http://localhost:5290/api/data/fetch \
   -H "Content-Type: application/json" | jq .
 
-# Pretty print with jq
+# Test caching behavior
+echo "First call (fetches data):"
 curl -s http://localhost:5290/api/data | jq .
+echo "\nSecond call (uses cache):"
+curl -s http://localhost:5290/api/data | jq .
+
+# Force fresh fetch
+echo "\nForce fetch (POST):"
+curl -s -X POST http://localhost:5290/api/data/fetch | jq .
 ```
 
 ### Using Postman or Similar Tools

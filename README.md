@@ -152,7 +152,16 @@ docker-compose down
 
 ### GET /api/data
 
-Returns the latest fetched LOF arbitrage data from jisilu.cn.
+Returns LOF arbitrage data from jisilu.cn with intelligent caching:
+- **Cache Hit (Same Day)**: Returns cached data immediately if already fetched today (Shanghai time)
+- **Cache Miss (Different Day)**: Automatically fetches fresh data, updates cache, and returns new data
+- **First Request**: Fetches data and caches it for the day
+
+**Behavior:**
+- Uses Shanghai timezone to determine "same day"
+- Cache is validated by comparing year, month, and day
+- Automatically refreshes data when date changes
+- Falls back to stale cache if fetch fails
 
 **Response (Success - 200 OK):**
 ```json
@@ -173,29 +182,58 @@ Returns the latest fetched LOF arbitrage data from jisilu.cn.
 ]
 ```
 
-**Response (No Data - 404 Not Found):**
+**Response (Empty - 200 OK):**
+```json
+[]
+```
+
+**Response (Fetch in Progress - 404 Not Found):**
 ```json
 {
-  "message": "No data available yet. Data is fetched daily at 14:00 Shanghai time."
+  "message": "Data fetch in progress. Please try again in a moment."
 }
 ```
 
 ### POST /api/data/fetch
 
-Manually triggers a data fetch from jisilu.cn (for testing purposes).
+Manually triggers a data fetch from jisilu.cn and returns the latest fetched data (for testing purposes).
+Forces a fresh fetch regardless of cache status.
 
 **Response (Success - 200 OK):**
 ```json
 {
-  "message": "Data fetch completed successfully"
+  "message": "Data fetch completed successfully",
+  "fetchTime": "2026-01-29T14:00:00",
+  "dataCount": 2,
+  "data": [
+    {
+      "lofFund": "160416",
+      "lofArbitrage": {
+        "purchaseQuantity": "1",
+        "purchaseDate": "2026-01-29"
+      },
+      "lofArbitrageStrategy": {
+        "policyType": 4,
+        "sellTime": "",
+        "sellStockPrice": "",
+        "turnBack": ""
+      }
+    }
+  ]
+}
+```
+
+**Response (Concurrent Fetch - 409 Conflict):**
+```json
+{
+  "message": "A data fetch operation is already in progress"
 }
 ```
 
 **Response (Error - 500 Internal Server Error):**
 ```json
 {
-  "message": "Data fetch failed",
-  "error": "Error details..."
+  "message": "Data fetch failed. Please try again later."
 }
 ```
 
@@ -221,6 +259,13 @@ The server automatically fetches data from jisilu.cn at 14:00 Shanghai time dail
 - Stock LOF list  
 - QDII list (E type, LOF only)
 - QDII list (C type)
+
+**Data Caching:**
+- Fetched data is cached with a timestamp (Shanghai time)
+- Cache is validated by date (year, month, day)
+- GET /api/data returns cached data if from the same day
+- GET /api/data automatically fetches new data if date has changed
+- POST /api/data/fetch forces a fresh fetch and returns the data immediately
 
 The server filters funds that meet both criteria:
 - discount_rt > 10%
