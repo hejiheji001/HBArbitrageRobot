@@ -16,8 +16,21 @@ builder.Services.AddHostedService(provider => provider.GetRequiredService<DataFe
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-app.MapOpenApi();
-app.MapScalarApiReference();
+// Enable OpenAPI and Scalar in development, or when explicitly enabled in production
+var enableApiDocs = app.Environment.IsDevelopment() || 
+                    app.Configuration.GetValue<bool>("EnableApiDocs", false);
+
+if (enableApiDocs)
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle("HBArbitrageRobot API")
+            .WithTheme(ScalarTheme.Purple)
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    });
+}
 
 // Only use HTTPS redirection in development, not in Docker
 if (!app.Environment.IsProduction())
