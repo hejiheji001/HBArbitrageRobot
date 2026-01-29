@@ -4,8 +4,8 @@
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
-        "USERNAME": "your_username_here",
-        "PASSWORD": "your_password_here",
+        "USERNAME": "120000286633",
+        "PASSWORD": "962464",
         "PWD": "your_transaction_password_here",
         "API_URL": "http://localhost:5000",
         "PURCHASE_TIME": "14:15",
@@ -17,8 +17,8 @@
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Production",
-        "USERNAME": "your_username_here",
-        "PASSWORD": "your_password_here",
+        "USERNAME": "120000286633",
+        "PASSWORD": "962464",
         "PWD": "your_transaction_password_here",
         "API_URL": "http://localhost:5000",
         "PURCHASE_TIME": "14:15",
@@ -30,8 +30,8 @@
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
-        "USERNAME": "your_username_here",
-        "PASSWORD": "your_password_here",
+        "USERNAME": "120000286633",
+        "PASSWORD": "962464",
         "PWD": "your_transaction_password_here",
         "API_URL": "http://localhost:8080",
         "PURCHASE_TIME": "14:15",

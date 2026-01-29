@@ -12,7 +12,6 @@ class Program
         var username = GetConfig(args, "USERNAME", 0);
         var password = GetConfig(args, "PASSWORD", 1);
         var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
-        var pwd = GetConfig(args, "PWD", 3); // Transaction password (required, no default)
         var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
         
         // Configurable max investment per stock holder per fund (in yuan)
@@ -24,13 +23,6 @@ class Program
             Console.WriteLine("Usage:");
             Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time]");
             Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME environment variables");
-            return;
-        }
-
-        if (string.IsNullOrEmpty(pwd))
-        {
-            Console.WriteLine("ERROR: Transaction password (PWD) is required.");
-            Console.WriteLine("  Set via command line argument or PWD environment variable");
             return;
         }
 
@@ -162,7 +154,7 @@ class Program
                 StockHolderList = stockHolderList,
                 PurchaseTime = purchaseTime,
                 List = lofData,
-                Pwd = pwd
+                Password = password
             };
 
             Console.WriteLine($"\nCreating arbitrage with:");

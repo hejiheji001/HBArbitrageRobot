@@ -38,14 +38,14 @@ public class DataStore(IMemoryCache cache)
         if (!cache.TryGetValue<CachedLofData>(CacheKey, out var cachedData) || cachedData == null)
             return null;
 
-        return cachedData.Data.Select(d => new LofArbitrageData
+        return [.. cachedData.Data.Select(d => new LofArbitrageData
         {
             LofFund = d.LofFund,
             Name = d.Name,
             ApplyStatus = d.ApplyStatus,
             Amount = d.Amount,
             PurchaseDate = d.PurchaseDate
-        }).ToList();
+        })];
     }
 
     public DateTime? GetCacheDateTime()
