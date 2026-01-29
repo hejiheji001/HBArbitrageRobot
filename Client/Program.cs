@@ -30,18 +30,81 @@ class Program
         {
             // Step 1: Launch browser and login
             Console.WriteLine("\nInitializing Playwright...");
-            using var playwright = await Playwright.CreateAsync();
             
-            // Launch browser (use headless in production)
+            IPlaywright? playwright = null;
+            IBrowser? browser = null;
             var headless = Environment.GetEnvironmentVariable("HEADLESS") != "false";
-            await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            
+            // Try to initialize Playwright with one retry after installation if needed
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                Headless = headless
-            });
-
-            // Use mobile device emulation since the URLs are mobile pages
-            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
-            var page = await context.NewPageAsync();
+                try
+                {
+                    playwright = await Playwright.CreateAsync();
+                    
+                    // Launch browser (use headless in production)
+                    browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+                    {
+                        Headless = headless
+                    });
+                    break; // Success - exit the retry loop
+                }
+                catch (Exception ex) when ((ex.Message.Contains("Executable doesn't exist") || 
+                                           ex.Message.Contains("Playwright was just installed")) && attempt == 0)
+                {
+                    // Dispose playwright if it was created before the browser launch failed
+                    playwright?.Dispose();
+                    playwright = null;
+                    
+                    Console.WriteLine("\nPlaywright browsers are not installed.");
+                    Console.Write("Would you like to install Playwright browsers now? (Y/N): ");
+                    
+                    var response = Console.ReadLine()?.Trim().ToUpperInvariant();
+                    
+                    if (response == "Y" || response == "YES")
+                    {
+                        Console.WriteLine("\nInstalling Playwright browsers...");
+                        Console.WriteLine("This may take a few minutes. Please wait...");
+                        
+                        // Run Playwright install command
+                        var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
+                        
+                        if (exitCode == 0)
+                        {
+                            Console.WriteLine("\n✓ Playwright browsers installed successfully!");
+                            Console.WriteLine("Retrying browser initialization...\n");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("\nPlaywright installation cancelled. Exiting...");
+                        return;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Clean up on any other exception
+                    playwright?.Dispose();
+                    throw;
+                }
+            }
+            
+            if (playwright == null || browser == null)
+            {
+                throw new InvalidOperationException("Failed to initialize Playwright after installation");
+            }
+            
+            using (playwright)
+            await using (browser)
+            {
+                // Use mobile device emulation since the URLs are mobile pages
+                var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+                var page = await context.NewPageAsync();
 
             // Step 2: Navigate to login page
             var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
@@ -186,6 +249,7 @@ class Program
                 // In headless mode, wait a bit before closing
                 await Task.Delay(5000);
             }
+            } // Close using blocks
         }
         catch (Exception ex)
         {
