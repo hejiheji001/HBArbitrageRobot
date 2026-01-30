@@ -317,11 +317,15 @@ Forces a fresh fetch regardless of cache status.
 
 ## Client Workflow
 
-The Client performs the following automated workflow:
+The Client runs continuously and performs the following automated workflow in cycles:
 
-1. **Login**: Authenticates to touker.com using provided credentials
-2. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
-3. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
+### Arbitrage Cycle (repeats indefinitely)
+
+1. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
+   - If server returns empty data or 404 "Data fetch in progress", enters standby mode immediately
+   - If data is available, proceeds with arbitrage operations
+2. **Login**: Authenticates to touker.com using provided credentials (only if LOF data is available)
+3. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
 4. **Calculate Investment**: For each LOF fund, calculates total investment amount:
    - Parses `applyStatus` to extract limit value:
      - "限10" → 10 yuan
@@ -337,6 +341,19 @@ The Client performs the following automated workflow:
    - Purchase time (default: 14:15)
    - LOF fund configurations
    - Transaction password
+6. **Standby Mode**: After completing arbitrage operations (or if no data available):
+   - Calculates time until next 14:20 (Shanghai time)
+   - If current time is past 14:20, waits until next day's 14:20
+   - Note: The client wakes at 14:20 to ensure server data (fetched at 14:00) is ready and give time for processing
+   - Sleeps until target time
+   - Wakes up and repeats the cycle
+
+### Error Handling
+
+- Any errors during the arbitrage cycle are logged to console
+- Error notification interface is available for webhook integration (currently logs only)
+- On error, the Client continues to the standby mode and will retry in the next cycle
+- Fatal errors in the main loop will terminate the application
 
 ### Investment Calculation Example
 
@@ -402,6 +419,7 @@ The client supports configuration via:
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
+   - `RETRY_DELAY_SECONDS`: Delay in seconds between retry attempts after errors or successful completions (default: 60)
    - `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT`: Set to `Development` to show browser UI by default
    - `HEADLESS`: Run browser in headless mode 
      - When `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` is `Development`: defaults to `false` (UI visible)
@@ -488,14 +506,20 @@ dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
 ## Notes
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
-- The Client runs once and exits after completing its task (not configured to restart automatically in Docker)
+- The Client runs continuously in an infinite loop, checking for arbitrage opportunities and entering standby mode until 14:20 Shanghai time daily
+  - On startup or after waking from standby, the Client checks the Server API for LOF arbitrage opportunities
+  - If opportunities are available, it performs the arbitrage operations
+  - After completing arbitrage (or if server returns empty/wait response), it enters standby mode
+  - In standby mode, it sleeps until 14:20 Shanghai time (or next day's 14:20 if current time is past 14:20)
+  - The cycle repeats indefinitely
 - The Client uses mobile device emulation (iPhone 13 Pro) to properly render and interact with touker.com mobile pages
 - Login selectors in the Client may need adjustment based on the actual touker.com page structure
 - For production use, ensure proper security measures for credential management:
   - Never commit the `.env` file to version control
   - Use Docker secrets, environment-specific config, or secret management services for production credentials
   - Avoid passing credentials via command-line arguments in production (they appear in process lists)
-- The Server includes timezone fallback (UTC+8) if timezone data is not available in the container
+- The Server and Client both include timezone fallback (UTC+8) if timezone data is not available in the container
+- Error notifications are currently logged to console with an interface ready for webhook integration
 
 ## License
 
