@@ -263,10 +263,11 @@ internal partial class Program
             Console.WriteLine($"Payload: {json}");
 
             // Create a copy of headers with Content-Type set to text/plain
-            var requestHeaders = new Dictionary<string, string>(headers.Select(h => new KeyValuePair<string, string>(h.Key, h.Value)))
-            {
-                ["Content-Type"] = "text/plain"
-            };
+            // Use GroupBy to handle potential duplicate keys (last value wins)
+            var requestHeaders = headers
+                .GroupBy(h => h.Key)
+                .ToDictionary(g => g.Key, g => g.Last().Value);
+            requestHeaders["Content-Type"] = "text/plain";
 
             // Use Playwright's API request context to make the POST request with the authenticated session
             var response = await page.Context.APIRequest.PostAsync(
