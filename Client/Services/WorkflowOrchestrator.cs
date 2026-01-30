@@ -1,0 +1,139 @@
+using Client.Models;
+using Microsoft.Playwright;
+
+namespace Client.Services;
+
+/// <summary>
+/// Orchestrator service that coordinates the arbitrage workflow
+/// </summary>
+public class WorkflowOrchestrator
+{
+    private readonly ConfigurationService _config;
+    private readonly ApiClientService _apiClient;
+    private readonly BrowserService _browserService;
+    private readonly AuthenticationService _authService;
+    private readonly ArbitrageService _arbitrageService;
+
+    public WorkflowOrchestrator(
+        ConfigurationService config,
+        ApiClientService apiClient,
+        BrowserService browserService,
+        AuthenticationService authService,
+        ArbitrageService arbitrageService)
+    {
+        _config = config;
+        _apiClient = apiClient;
+        _browserService = browserService;
+        _authService = authService;
+        _arbitrageService = arbitrageService;
+    }
+
+    /// <summary>
+    /// Run the complete arbitrage workflow
+    /// </summary>
+    public async Task RunArbitrageWorkflowAsync(List<LofArbitrageData> lofData)
+    {
+        // Initialize browser and login
+        var (playwright, browser) = await _browserService.InitializeBrowserAsync();
+        
+        using (playwright)
+        await using (browser)
+        {
+            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+            var page = await context.NewPageAsync();
+
+            // Login
+            await NavigateToLoginAndAuthenticateAsync(page);
+
+            // Navigate to main page
+            await NavigateToMainPageAsync(page);
+
+            // Fetch stock holder list
+            var stockHolderList = await FetchAndValidateStockHoldersAsync(page);
+
+            // Calculate investments
+            _arbitrageService.CalculateInvestments(lofData, stockHolderList, _config.MaxInvestmentPerHolder);
+
+            // Create arbitrage orders
+            await CreateArbitrageOrdersAsync(page, lofData, stockHolderList);
+
+            await Task.Delay(5000);
+        }
+    }
+
+    private async Task NavigateToLoginAndAuthenticateAsync(IPage page)
+    {
+        var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal";
+        Console.WriteLine($"\nNavigating to login page: {loginUrl}");
+        
+        await page.GotoAsync(loginUrl);
+        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        
+        await _authService.LogInAsync(page);
+    }
+
+    private async Task NavigateToMainPageAsync(IPage page)
+    {
+        var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
+        await _browserService.NavigateWithRetryAsync(page, mainUrl);
+        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        Console.WriteLine("Page URL: " + page.Url);
+    }
+
+    private async Task<List<string>> FetchAndValidateStockHoldersAsync(IPage page)
+    {
+        Console.WriteLine("\nFetching stock holder list...");
+        var stockHolderList = await _arbitrageService.FetchStockHolderListAsync(page);
+
+        if (stockHolderList.Count == 0)
+        {
+            throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
+        }
+
+        Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
+        for (int i = 0; i < stockHolderList.Count; i++)
+        {
+            Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
+        }
+
+        return stockHolderList;
+    }
+
+    private async Task CreateArbitrageOrdersAsync(IPage page, List<LofArbitrageData> lofData, List<string> stockHolderList)
+    {
+        var lofPayload = lofData.Select(item => new LofArbitragePayload
+        {
+            LofFund = item.LofFund,
+            LofArbitrageStrategy = new(),
+            LofArbitrage = new LofArbitrage
+            {
+                PurchaseDate = item.PurchaseDate,
+                PurchaseQuantity = item.Amount.ToString()
+            }
+        }).ToList();
+
+        var request = new CreateArbitrageRequest
+        {
+            StockHolderList = stockHolderList,
+            PurchaseTime = _config.PurchaseTime,
+            List = lofPayload,
+            Password = _config.Password
+        };
+
+        Console.WriteLine($"\nCreating arbitrage with:");
+        Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
+        Console.WriteLine($"  - Purchase Time: {_config.PurchaseTime}");
+        Console.WriteLine($"  - LOF Items: {lofData.Count}");
+
+        var success = await _arbitrageService.CreateArbitrageAsync(page, request);
+
+        if (success)
+        {
+            Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
+        }
+        else
+        {
+            throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
+        }
+    }
+}
