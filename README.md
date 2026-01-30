@@ -419,6 +419,7 @@ The client supports configuration via:
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
+   - `RETRY_DELAY_SECONDS`: Delay in seconds between retry attempts after errors or successful completions (default: 60)
    - `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT`: Set to `Development` to show browser UI by default
    - `HEADLESS`: Run browser in headless mode 
      - When `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` is `Development`: defaults to `false` (UI visible)
