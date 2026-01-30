@@ -125,7 +125,6 @@ public partial class DataFetchService(
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
             httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
 
             // Fetch data from all LOF URLs
             foreach (var lofUrl in lofUrls)
