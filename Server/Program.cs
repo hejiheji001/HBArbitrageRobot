@@ -1,5 +1,7 @@
 using Server.Services;
 using Scalar.AspNetCore;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +61,13 @@ if (!string.IsNullOrEmpty(urls))
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddHttpClient();
+
+// Configure HttpClient with Polly retry policy
+builder.Services.AddHttpClient("DataFetchClient", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .AddPolicyHandler(GetRetryPolicy());
 
 // Add MemoryCache
 builder.Services.AddMemoryCache();
@@ -103,3 +111,21 @@ if (!app.Environment.IsProduction())
 app.MapControllers();
 
 app.Run();
+
+// Polly retry policy for handling transient failures
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError() // Handles HttpRequestException, 5xx and 408 responses
+        .Or<TaskCanceledException>() // Handle TaskCanceledException (including timeouts)
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+            onRetry: (outcome, timespan, retryCount, context) =>
+            {
+                var errorMessage = outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString() ?? "Unknown error";
+                // Note: Using Console.WriteLine here as ILogger is not available in this static context
+                // In production, this will be visible in application logs
+                Console.WriteLine($"[Retry Policy] Attempt {retryCount} will retry after {timespan.TotalSeconds}s due to: {errorMessage}");
+            });
+}
