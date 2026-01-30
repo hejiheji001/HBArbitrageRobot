@@ -6,7 +6,7 @@
         "DOTNET_ENVIRONMENT": "Development",
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
-        "API_URL": "http://localhost:64743",
+        "API_URL": "https://localhost:64743",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "false"
@@ -18,7 +18,7 @@
         "DOTNET_ENVIRONMENT": "Production",
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
-        "API_URL": "http://localhost:64743",
+        "API_URL": "https://localhost:64743",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "true"
@@ -30,7 +30,7 @@
         "DOTNET_ENVIRONMENT": "Development",
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
-        "API_URL": "http://localhost:8080",
+        "API_URL": "https://localhost:8080",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "false"
@@ -38,7 +38,7 @@
     },
     "Client (Command Line Args)": {
       "commandName": "Project",
-      "commandLineArgs": "120000286633 962464 http://localhost:64743 14:15 1000",
+      "commandLineArgs": "120000286633 962464 https://localhost:64743 14:15 1000",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
         "HEADLESS": "false"
