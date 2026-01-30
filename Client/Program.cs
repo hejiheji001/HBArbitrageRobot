@@ -262,13 +262,19 @@ internal partial class Program
             Console.WriteLine($"\nSending POST request to createLofArbitrage.do");
             Console.WriteLine($"Payload: {json}");
 
+            // Create a copy of headers with Content-Type set to text/plain
+            var requestHeaders = new Dictionary<string, string>(headers.Select(h => new KeyValuePair<string, string>(h.Key, h.Value)))
+            {
+                ["Content-Type"] = "text/plain"
+            };
+
             // Use Playwright's API request context to make the POST request with the authenticated session
             var response = await page.Context.APIRequest.PostAsync(
                 "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
                 new APIRequestContextOptions
                 {
-                    DataObject = request,
-                    Headers = headers
+                    Data = json,
+                    Headers = requestHeaders
                 });
 
 
