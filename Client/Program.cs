@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Client.Models;
 
-partial class Program
+internal partial class Program
 {
     // Interface for error notification - can be extended to webhook integration
     private interface IErrorNotifier
@@ -28,12 +28,12 @@ partial class Program
 
     private static readonly IErrorNotifier errorNotifier = new ConsoleErrorNotifier();
 
-    static readonly HttpClient httpClient = new()
+    private static readonly HttpClient httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(10)
     };
 
-    static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
+    private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
     {
         // First check command line arguments
         if (args.Length > argIndex && !string.IsNullOrEmpty(args[argIndex]))
@@ -52,7 +52,7 @@ partial class Program
         return defaultValue ?? string.Empty;
     }
 
-    static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, int retryDelaySeconds)
+    private static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, int retryDelaySeconds)
     {
         try
         {
@@ -120,8 +120,9 @@ partial class Program
     }
 
 
-    static async Task Main(string[] args)
+    private static async Task Main(string[] args)
     {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.WriteLine("HBArbitrageRobot Client Starting...");
         Console.WriteLine("Running in continuous mode - will check for arbitrage opportunities periodically");
 
@@ -175,7 +176,7 @@ partial class Program
         }
     }
 
-    static async Task<List<string>> FetchStockHolderList(IPage page)
+    private static async Task<List<string>> FetchStockHolderList(IPage page)
     {
         try
         {
@@ -207,7 +208,7 @@ partial class Program
         return [];
     }
 
-    static async Task<bool> CreateArbitrage(IPage page, CreateArbitrageRequest request)
+    private static async Task<bool> CreateArbitrage(IPage page, CreateArbitrageRequest request)
     {
         try
         {
@@ -236,7 +237,7 @@ partial class Program
         }
     }
 
-    static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, List<LofArbitrageData> lofData)
+    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, List<LofArbitrageData> lofData)
     {
         // Set Playwright to use running directory for browser installation if not already set
         // This prevents the default AppData location from being used
@@ -265,7 +266,7 @@ partial class Program
         if (!string.IsNullOrEmpty(headlessEnv))
         {
             // If HEADLESS is explicitly set, use that value
-            headless = headlessEnv.ToLower() != "false";
+            headless = !headlessEnv.Equals("false", StringComparison.CurrentCultureIgnoreCase);
         }
         else
         {
@@ -327,221 +328,223 @@ partial class Program
                     throw;
                 }
             }
+        }
 
-            if (playwright == null || browser == null)
+        if (playwright == null || browser == null)
+        {
+            throw new InvalidOperationException("Failed to initialize Playwright after installation");
+        }
+
+        using (playwright)
+        await using (browser)
+        {
+            // Use mobile device emulation since the URLs are mobile pages
+            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+            var page = await context.NewPageAsync();
+
+            // Step 3: Navigate to login page
+            var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
+            Console.WriteLine($"\nNavigating to login page: {loginUrl}");
+            await page.GotoAsync(loginUrl);
+
+            // Wait for page to load
+            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            // Step 4: Perform login
+            Console.WriteLine("Attempting login...");
+
+            try
             {
-                throw new InvalidOperationException("Failed to initialize Playwright after installation");
-            }
+                // Wait for login form elements - based on actual DOM structure
+                await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-            using (playwright)
-            await using (browser)
-            {
-                // Use mobile device emulation since the URLs are mobile pages
-                var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
-                var page = await context.NewPageAsync();
+                // Fill in credentials using actual DOM selectors
+                var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
+                var passwordSelector = "input[type='tel'][max='6'].hide_input";
+                var checkboxSelector = "div.check-input";
+                var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
 
-                // Step 3: Navigate to login page
-                var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
-                Console.WriteLine($"\nNavigating to login page: {loginUrl}");
-                await page.GotoAsync(loginUrl);
+                await page.FillAsync(usernameSelector, username);
+                await page.FillAsync(passwordSelector, password);
 
-                // Wait for page to load
+                // Click the confirmation checkbox before submitting
+                Console.WriteLine("Clicking confirmation checkbox...");
+                await page.ClickAsync(checkboxSelector);
+
+                // Wait a moment for the button to become enabled
+                await Task.Delay(500);
+
+                Console.WriteLine("Credentials entered, submitting...");
+                await page.ClickAsync(submitSelector);
+
+                // Wait for navigation after login
                 await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
-                // Step 4: Perform login
-                Console.WriteLine("Attempting login...");
+                // Add additional wait to ensure session is fully established
+                Console.WriteLine("Waiting for session to be established...");
+                await Task.Delay(3000); // 3 seconds
 
+                Console.WriteLine("Login submitted successfully");
+                Console.WriteLine($"Current URL after login: {page.Url}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
+                Console.WriteLine("Continuing to navigate to main page...");
+            }
+
+            // Step 5: Navigate to the main page after login
+            var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
+            Console.WriteLine($"\nNavigating to main page: {mainUrl}");
+
+            // Add retry logic for navigation to handle transient errors
+            int maxRetries = 3;
+            int retryDelay = 2000; // 2 seconds
+            bool navigationSuccess = false;
+            Exception? lastException = null;
+
+            for (int retry = 0; retry < maxRetries; retry++)
+            {
                 try
                 {
-                    // Wait for login form elements - based on actual DOM structure
-                    await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
+                    if (retry > 0)
+                    {
+                        Console.WriteLine($"Navigation attempt {retry + 1} of {maxRetries}...");
+                        await Task.Delay(retryDelay);
+                    }
 
-                    // Fill in credentials using actual DOM selectors
-                    var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
-                    var passwordSelector = "input[type='tel'][max='6'].hide_input";
-                    var checkboxSelector = "div.check-input";
-                    var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
+                    // Use a longer timeout and wait for networkidle instead of load
+                    await page.GotoAsync(mainUrl, new PageGotoOptions
+                    {
+                        Timeout = 30000, // 30 seconds
+                        WaitUntil = WaitUntilState.NetworkIdle
+                    });
 
-                    await page.FillAsync(usernameSelector, username);
-                    await page.FillAsync(passwordSelector, password);
-
-                    // Click the confirmation checkbox before submitting
-                    Console.WriteLine("Clicking confirmation checkbox...");
-                    await page.ClickAsync(checkboxSelector);
-
-                    // Wait a moment for the button to become enabled
-                    await Task.Delay(500);
-
-                    Console.WriteLine("Credentials entered, submitting...");
-                    await page.ClickAsync(submitSelector);
-
-                    // Wait for navigation after login
-                    await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
-                    // Add additional wait to ensure session is fully established
-                    Console.WriteLine("Waiting for session to be established...");
-                    await Task.Delay(3000); // 3 seconds
-
-                    Console.WriteLine("Login submitted successfully");
-                    Console.WriteLine($"Current URL after login: {page.Url}");
+                    navigationSuccess = true;
+                    Console.WriteLine("Successfully navigated to main page");
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
-                    Console.WriteLine("Continuing to navigate to main page...");
-                }
+                    lastException = ex;
+                    Console.WriteLine($"Navigation attempt {retry + 1} failed: {ex.Message}");
 
-                // Step 5: Navigate to the main page after login
-                var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
-                Console.WriteLine($"\nNavigating to main page: {mainUrl}");
-
-                // Add retry logic for navigation to handle transient errors
-                int maxRetries = 3;
-                int retryDelay = 2000; // 2 seconds
-                bool navigationSuccess = false;
-                Exception? lastException = null;
-
-                for (int retry = 0; retry < maxRetries; retry++)
-                {
-                    try
+                    // Check if it's an ERR_ABORTED or similar navigation error
+                    if (ex.Message.Contains("ERR_ABORTED") || ex.Message.Contains("net::"))
                     {
-                        if (retry > 0)
+                        Console.WriteLine("Detected network error, will retry...");
+                        // Wait a bit longer for network errors
+                        if (retry < maxRetries - 1)
                         {
-                            Console.WriteLine($"Navigation attempt {retry + 1} of {maxRetries}...");
                             await Task.Delay(retryDelay);
                         }
-
-                        // Use a longer timeout and wait for networkidle instead of load
-                        await page.GotoAsync(mainUrl, new PageGotoOptions
-                        {
-                            Timeout = 30000, // 30 seconds
-                            WaitUntil = WaitUntilState.NetworkIdle
-                        });
-
-                        navigationSuccess = true;
-                        Console.WriteLine("Successfully navigated to main page");
+                    }
+                    else
+                    {
+                        // For other errors, don't retry
                         break;
                     }
-                    catch (Exception ex)
-                    {
-                        lastException = ex;
-                        Console.WriteLine($"Navigation attempt {retry + 1} failed: {ex.Message}");
-
-                        // Check if it's an ERR_ABORTED or similar navigation error
-                        if (ex.Message.Contains("ERR_ABORTED") || ex.Message.Contains("net::"))
-                        {
-                            Console.WriteLine("Detected network error, will retry...");
-                            // Wait a bit longer for network errors
-                            if (retry < maxRetries - 1)
-                            {
-                                await Task.Delay(retryDelay);
-                            }
-                        }
-                        else
-                        {
-                            // For other errors, don't retry
-                            break;
-                        }
-                    }
                 }
+            }
 
-                if (!navigationSuccess)
+            if (!navigationSuccess)
+            {
+                Console.WriteLine($"\n✗ Failed to navigate to main page after {maxRetries} attempts");
+                Console.WriteLine($"Last error: {lastException?.Message}");
+                Console.WriteLine("\nPossible reasons:");
+                Console.WriteLine("  - Login session may have expired or failed");
+                Console.WriteLine("  - Network connectivity issues");
+                Console.WriteLine("  - The website may be blocking automated access");
+                Console.WriteLine($"\nCurrent page URL: {page.Url}");
+                throw new InvalidOperationException("Failed to navigate to main page", lastException);
+            }
+
+            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            Console.WriteLine("Page URL: " + page.Url);
+
+            // Step 6: Fetch stock holder list from the API
+            Console.WriteLine("\nFetching stock holder list...");
+            var stockHolderList = await FetchStockHolderList(page);
+
+            if (stockHolderList.Count == 0)
+            {
+                throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
+            }
+
+            Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
+            for (int i = 0; i < stockHolderList.Count; i++)
+            {
+                Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
+            }
+
+            // Step 7: Calculate total investment based on Amount field
+            decimal totalInvestment = 0;
+
+            Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
+
+            foreach (var item in lofData)
+            {
+                // Use the Amount field from the API (already converted from ApplyStatus)
+                var applyLimit = item.Amount;
+                // Take the minimum of apply_status limit and configured max investment per holder
+                var effectiveLimit = Math.Min(applyLimit, maxInvestmentPerHolder);
+                var investmentPerFund = stockHolderList.Count * effectiveLimit;
+                totalInvestment += investmentPerFund;
+
+                Console.WriteLine($"  - Fund: {item.LofFund}");
+                Console.WriteLine($"  - Name: {item.Name}");
+                Console.WriteLine($"    Apply Status: {item.ApplyStatus}, Amount: {applyLimit} yuan");
+                Console.WriteLine($"    Effective Limit: {effectiveLimit} yuan per holder");
+                Console.WriteLine($"    Investment: {stockHolderList.Count} holders × {effectiveLimit} yuan = {investmentPerFund} yuan");
+            }
+
+            Console.WriteLine($"\nTotal Investment Summary:");
+            Console.WriteLine($"  - Number of Stock Holders: {stockHolderList.Count}");
+            Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
+            Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
+
+            var lofPayload = lofData.Select(item => new LofArbitragePayload
+            {
+                LofFund = item.LofFund,
+                LofArbitrageStrategy = new(),
+                LofArbitrage = new LofArbitrage
                 {
-                    Console.WriteLine($"\n✗ Failed to navigate to main page after {maxRetries} attempts");
-                    Console.WriteLine($"Last error: {lastException?.Message}");
-                    Console.WriteLine("\nPossible reasons:");
-                    Console.WriteLine("  - Login session may have expired or failed");
-                    Console.WriteLine("  - Network connectivity issues");
-                    Console.WriteLine("  - The website may be blocking automated access");
-                    Console.WriteLine($"\nCurrent page URL: {page.Url}");
-                    throw new InvalidOperationException("Failed to navigate to main page", lastException);
+                    PurchaseDate = item.PurchaseDate,
+                    PurchaseQuantity = item.Amount.ToString()
                 }
+            }).ToList();
 
-                await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-                Console.WriteLine("Page URL: " + page.Url);
+            // Step 8: Create arbitrage request
+            var request = new CreateArbitrageRequest
+            {
+                StockHolderList = stockHolderList,
+                PurchaseTime = purchaseTime,
+                List = lofPayload,
+                Password = password
+            };
 
-                // Step 6: Fetch stock holder list from the API
-                Console.WriteLine("\nFetching stock holder list...");
-                var stockHolderList = await FetchStockHolderList(page);
+            Console.WriteLine($"\nCreating arbitrage with:");
+            Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
+            Console.WriteLine($"  - Purchase Time: {purchaseTime}");
+            Console.WriteLine($"  - LOF Items: {lofData.Count}");
 
-                if (stockHolderList.Count == 0)
-                {
-                    throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
-                }
+            // Step 9: Send POST request to create arbitrage
+            var success = await CreateArbitrage(page, request);
 
-                Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
-                for (int i = 0; i < stockHolderList.Count; i++)
-                {
-                    Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
-                }
+            if (success)
+            {
+                Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
+            }
+            else
+            {
+                throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
+            }
 
-                // Step 7: Calculate total investment based on Amount field
-                decimal totalInvestment = 0;
-
-                Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
-
-                foreach (var item in lofData)
-                {
-                    // Use the Amount field from the API (already converted from ApplyStatus)
-                    var applyLimit = item.Amount;
-                    // Take the minimum of apply_status limit and configured max investment per holder
-                    var effectiveLimit = Math.Min(applyLimit, maxInvestmentPerHolder);
-                    var investmentPerFund = stockHolderList.Count * effectiveLimit;
-                    totalInvestment += investmentPerFund;
-
-                    Console.WriteLine($"  - Fund: {item.LofFund}");
-                    Console.WriteLine($"    Apply Status: {item.ApplyStatus}, Amount: {applyLimit} yuan");
-                    Console.WriteLine($"    Effective Limit: {effectiveLimit} yuan per holder");
-                    Console.WriteLine($"    Investment: {stockHolderList.Count} holders × {effectiveLimit} yuan = {investmentPerFund} yuan");
-                }
-
-                Console.WriteLine($"\nTotal Investment Summary:");
-                Console.WriteLine($"  - Number of Stock Holders: {stockHolderList.Count}");
-                Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
-                Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
-
-                // Step 8: Create arbitrage request
-                var request = new CreateArbitrageRequest
-                {
-                    StockHolderList = stockHolderList,
-                    PurchaseTime = purchaseTime,
-                    List = lofData,
-                    Password = password
-                };
-
-                Console.WriteLine($"\nCreating arbitrage with:");
-                Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
-                Console.WriteLine($"  - Purchase Time: {purchaseTime}");
-                Console.WriteLine($"  - LOF Items: {lofData.Count}");
-
-                // Step 9: Send POST request to create arbitrage
-                var success = await CreateArbitrage(page, request);
-
-                if (success)
-                {
-                    Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
-                }
-                else
-                {
-                    throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
-                }
-
-                // Keep browser open for a moment to see the result
-                if (!headless)
-                {
-                    Console.WriteLine("\nPress Enter to continue to standby mode...");
-                    Console.ReadLine();
-                }
-                else
-                {
-                    // In headless mode, wait a bit before closing
-                    await Task.Delay(5000);
-                }
-            } // Close using blocks
-        }
+            await Task.Delay(5000);
+        } // Close using blocks
     }
 
-    static async Task EnterStandbyModeAsync()
+    private static async Task EnterStandbyModeAsync()
     {
         Console.WriteLine("\n" + new string('-', 80));
         Console.WriteLine("Entering standby mode...");
@@ -606,8 +609,8 @@ partial class Program
         
         Console.WriteLine($"\n⏰ Waking up at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
     }
-    
-    static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
+
+    private static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
     {
         try
         {
@@ -616,8 +619,9 @@ partial class Program
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                var data = JsonConvert.DeserializeObject<List<LofArbitrageData>>(json);
-                
+                var dataResponse = JsonConvert.DeserializeObject<LofArbitrageDataResponse>(json);
+                var data = dataResponse?.Data;
+
                 // If data is empty or null, consider it as a signal to wait
                 if (data == null || data.Count == 0)
                 {
