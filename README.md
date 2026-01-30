@@ -317,11 +317,15 @@ Forces a fresh fetch regardless of cache status.
 
 ## Client Workflow
 
-The Client performs the following automated workflow in a continuous loop:
+The Client runs continuously and performs the following automated workflow in cycles:
 
-1. **Login**: Authenticates to touker.com using provided credentials
-2. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
-3. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
+### Arbitrage Cycle (repeats indefinitely)
+
+1. **Fetch LOF Data**: Retrieves LOF arbitrage configuration from the Server API
+   - If server returns empty data or 404 "Data fetch in progress", enters standby mode immediately
+   - If data is available, proceeds with arbitrage operations
+2. **Login**: Authenticates to touker.com using provided credentials (only if LOF data is available)
+3. **Fetch Stock Holders**: Queries `queryStockHolderNoList.do` to get all stock holder accounts
 4. **Calculate Investment**: For each LOF fund, calculates total investment amount:
    - Parses `applyStatus` to extract limit value:
      - "限10" → 10 yuan
@@ -337,13 +341,19 @@ The Client performs the following automated workflow in a continuous loop:
    - Purchase time (default: 14:15)
    - LOF fund configurations
    - Transaction password
-6. **Retry/Continue**: After completion (success or failure), waits for the configured retry delay (default: 60 seconds) and repeats the workflow
+6. **Standby Mode**: After completing arbitrage operations (or if no data available):
+   - Calculates time until next 14:20 (Shanghai time)
+   - If current time is past 14:20, waits until next day's 14:20
+   - Note: The client wakes at 14:20 to ensure server data (fetched at 14:00) is ready and give time for processing
+   - Sleeps until target time
+   - Wakes up and repeats the cycle
 
-**Error Handling:**
-- The client will **never exit** when errors or exceptions occur
-- All errors are logged and the client automatically retries after the configured delay
-- This ensures continuous operation even when temporary issues occur (network errors, API failures, etc.)
-- Configure retry delay using `RETRY_DELAY_SECONDS` environment variable or command-line argument
+### Error Handling
+
+- Any errors during the arbitrage cycle are logged to console
+- Error notification interface is available for webhook integration (currently logs only)
+- On error, the Client continues to the standby mode and will retry in the next cycle
+- Fatal errors in the main loop will terminate the application
 
 ### Investment Calculation Example
 
@@ -496,17 +506,20 @@ dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
 ## Notes
 
 - The Server runs continuously and fetches data at 14:00 Shanghai time daily
-- The Client runs continuously in a loop and **never exits**, even when errors occur
-  - After each workflow completion (success or failure), it waits for the configured retry delay (default: 60 seconds) and repeats
-  - All errors are automatically recovered, logged, and retried
-  - This ensures the client maintains continuous operation and can recover from temporary issues
+- The Client runs continuously in an infinite loop, checking for arbitrage opportunities and entering standby mode until 14:20 Shanghai time daily
+  - On startup or after waking from standby, the Client checks the Server API for LOF arbitrage opportunities
+  - If opportunities are available, it performs the arbitrage operations
+  - After completing arbitrage (or if server returns empty/wait response), it enters standby mode
+  - In standby mode, it sleeps until 14:20 Shanghai time (or next day's 14:20 if current time is past 14:20)
+  - The cycle repeats indefinitely
 - The Client uses mobile device emulation (iPhone 13 Pro) to properly render and interact with touker.com mobile pages
 - Login selectors in the Client may need adjustment based on the actual touker.com page structure
 - For production use, ensure proper security measures for credential management:
   - Never commit the `.env` file to version control
   - Use Docker secrets, environment-specific config, or secret management services for production credentials
   - Avoid passing credentials via command-line arguments in production (they appear in process lists)
-- The Server includes timezone fallback (UTC+8) if timezone data is not available in the container
+- The Server and Client both include timezone fallback (UTC+8) if timezone data is not available in the container
+- Error notifications are currently logged to console with an interface ready for webhook integration
 
 ## License
 
