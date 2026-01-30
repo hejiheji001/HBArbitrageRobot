@@ -33,6 +33,10 @@ internal partial class Program
         Timeout = TimeSpan.FromSeconds(10)
     };
 
+    private static string? username;
+    private static string? password;
+    private static readonly List<KeyValuePair<string, string>> headers = [];
+
     private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
     {
         // First check command line arguments
@@ -52,7 +56,7 @@ internal partial class Program
         return defaultValue ?? string.Empty;
     }
 
-    private static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, int retryDelaySeconds)
+    private static async Task RunArbitrageCycleAsync(string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, int retryDelaySeconds)
     {
         try
         {
@@ -90,7 +94,6 @@ internal partial class Program
                                 Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
             var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
-            bool headless;
 
             if (!string.IsNullOrEmpty(headlessEnv))
             {
@@ -103,7 +106,7 @@ internal partial class Program
                     throw new InvalidOperationException("Username and password are required");
                 }
 
-                await RunArbitrageWorkflowAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder, lofData);
+                await RunArbitrageWorkflowAsync(apiUrl, purchaseTime, maxInvestmentPerHolder, lofData);
 
                 // If successful, wait and retry
                 Console.WriteLine($"\n✓ Workflow completed successfully. Waiting {retryDelaySeconds} seconds before next run...");
@@ -127,8 +130,9 @@ internal partial class Program
         Console.WriteLine("Running in continuous mode - will check for arbitrage opportunities periodically");
 
         // Parse arguments or environment variables for credentials
-        var username = GetConfig(args, "USERNAME", 0);
-        var password = GetConfig(args, "PASSWORD", 1);
+        username = GetConfig(args, "USERNAME", 0);
+        password = GetConfig(args, "PASSWORD", 1);
+        
         var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
         var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
         var retryDelaySeconds = 60; // Default retry delay
@@ -157,7 +161,7 @@ internal partial class Program
                 
                 try
                 {
-                    await RunArbitrageCycleAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder, retryDelaySeconds);
+                    await RunArbitrageCycleAsync(apiUrl, purchaseTime, maxInvestmentPerHolder, retryDelaySeconds);
                 }
                 catch (Exception ex)
                 {
@@ -176,28 +180,58 @@ internal partial class Program
         }
     }
 
+    private static async Task<string> FetchData(IPage page, string url, HttpMethod method)
+    {
+        var result = string.Empty;
+        
+        try
+        {
+            var response = method.Method switch
+            {
+                "POST" => await page.Context.APIRequest.PostAsync(url),
+                "GET" => await page.Context.APIRequest.GetAsync(url),
+                _ => throw new NotImplementedException(),
+            };
+
+            if (response.Ok)
+            {
+                result = await response.TextAsync();
+            }
+            else
+            {
+                Console.WriteLine($"Failed to fetch data from {url} @ Status: {response.Status}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching data from {url} @ {ex.Message}");
+        }
+
+        return result;
+
+    }
+
     private static async Task<List<string>> FetchStockHolderList(IPage page)
     {
         try
         {
             // Use Playwright's API request context to make the request with the authenticated session
-            var response = await page.Context.APIRequest.GetAsync("https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do");
+            var url = "https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do";
+            var response = await FetchData(page, url, HttpMethod.Get);
 
-            if (response.Ok)
+            Console.WriteLine($"Stock holder response: {response}");
+
+            if (response.Contains("未登陆"))
             {
-                var json = await response.TextAsync();
-                Console.WriteLine($"Stock holder response: {json}");
-
-                var data = JsonConvert.DeserializeObject<StockHolderResponse>(json);
-
-                if (data?.Success == true && data.Result != null)
-                {
-                    return [.. data.Result.Select(s => s.StockHolderNo)];
-                }
+                await LogIn(page);
+                response = await FetchData(page, url, HttpMethod.Get);
             }
-            else
+
+            var data = JsonConvert.DeserializeObject<StockHolderResponse>(response);
+
+            if (data?.Success == true && data.Result != null)
             {
-                Console.WriteLine($"Failed to fetch stock holders. Status: {response.Status}");
+                return [.. data.Result.Select(s => s.StockHolderNo)];
             }
         }
         catch (Exception ex)
@@ -221,8 +255,10 @@ internal partial class Program
                 "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
                 new APIRequestContextOptions
                 {
-                    DataObject = request
+                    DataObject = request,
+                    Headers = headers
                 });
+
 
             var responseText = await response.TextAsync();
             Console.WriteLine($"Response status: {response.Status}");
@@ -237,7 +273,7 @@ internal partial class Program
         }
     }
 
-    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, List<LofArbitrageData> lofData)
+    private static async Task RunArbitrageWorkflowAsync(string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, List<LofArbitrageData> lofData)
     {
         // Set Playwright to use running directory for browser installation if not already set
         // This prevents the default AppData location from being used
@@ -309,7 +345,7 @@ internal partial class Program
                     Console.WriteLine("This may take a few minutes. Please wait...");
 
                     // Run Playwright install command
-                    var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
+                    var exitCode = Microsoft.Playwright.Program.Main(["install", "chromium"]);
 
                     if (exitCode == 0)
                     {
@@ -343,7 +379,7 @@ internal partial class Program
             var page = await context.NewPageAsync();
 
             // Step 3: Navigate to login page
-            var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
+            var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal";
             Console.WriteLine($"\nNavigating to login page: {loginUrl}");
             await page.GotoAsync(loginUrl);
 
@@ -351,47 +387,7 @@ internal partial class Program
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
             // Step 4: Perform login
-            Console.WriteLine("Attempting login...");
-
-            try
-            {
-                // Wait for login form elements - based on actual DOM structure
-                await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
-
-                // Fill in credentials using actual DOM selectors
-                var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
-                var passwordSelector = "input[type='tel'][max='6'].hide_input";
-                var checkboxSelector = "div.check-input";
-                var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
-
-                await page.FillAsync(usernameSelector, username);
-                await page.FillAsync(passwordSelector, password);
-
-                // Click the confirmation checkbox before submitting
-                Console.WriteLine("Clicking confirmation checkbox...");
-                await page.ClickAsync(checkboxSelector);
-
-                // Wait a moment for the button to become enabled
-                await Task.Delay(500);
-
-                Console.WriteLine("Credentials entered, submitting...");
-                await page.ClickAsync(submitSelector);
-
-                // Wait for navigation after login
-                await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
-                // Add additional wait to ensure session is fully established
-                Console.WriteLine("Waiting for session to be established...");
-                await Task.Delay(3000); // 3 seconds
-
-                Console.WriteLine("Login submitted successfully");
-                Console.WriteLine($"Current URL after login: {page.Url}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
-                Console.WriteLine("Continuing to navigate to main page...");
-            }
+            await LogIn(page);
 
             // Step 5: Navigate to the main page after login
             var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
@@ -542,6 +538,51 @@ internal partial class Program
 
             await Task.Delay(5000);
         } // Close using blocks
+    }
+
+    private static async Task LogIn(IPage page)
+    {
+        Console.WriteLine("Attempting login...");
+
+        try
+        {
+            // Wait for login form elements - based on actual DOM structure
+            await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
+
+            // Fill in credentials using actual DOM selectors
+            var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
+            var passwordSelector = "input[type='tel'][max='6'].hide_input";
+            var checkboxSelector = "div.check-input";
+            var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
+
+            await page.FillAsync(usernameSelector, username);
+            await page.FillAsync(passwordSelector, password);
+
+            // Click the confirmation checkbox before submitting
+            Console.WriteLine("Clicking confirmation checkbox...");
+            await page.ClickAsync(checkboxSelector);
+
+            // Wait a moment for the button to become enabled
+            await Task.Delay(500);
+
+            Console.WriteLine("Credentials entered, submitting...");
+            await page.ClickAsync(submitSelector);
+
+            // Wait for navigation after login
+            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            // Add additional wait to ensure session is fully established
+            Console.WriteLine("Waiting for session to be established...");
+            await Task.Delay(3000); // 3 seconds
+
+            Console.WriteLine("Login submitted successfully");
+            Console.WriteLine($"Current URL after login: {page.Url}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
+            Console.WriteLine("Continuing to navigate to main page...");
+        }
     }
 
     private static async Task EnterStandbyModeAsync()
