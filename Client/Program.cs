@@ -234,6 +234,8 @@ internal partial class Program
             if (data?.Success == true && data.Result != null)
             {
                 // Add all headers from the successful response to the headers list
+                // Clear existing headers to prevent accumulation on subsequent calls
+                headers.Clear();
                 var responseHeaders = apiResponse.Headers;
                 foreach (var header in responseHeaders)
                 {
