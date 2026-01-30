@@ -217,20 +217,30 @@ internal partial class Program
         {
             // Use Playwright's API request context to make the request with the authenticated session
             var url = "https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do";
-            var response = await FetchData(page, url, HttpMethod.Get);
+            var apiResponse = await page.Context.APIRequest.GetAsync(url);
+            var response = await apiResponse.TextAsync();
 
             Console.WriteLine($"Stock holder response: {response}");
 
             if (response.Contains("未登陆"))
             {
                 await LogIn(page);
-                response = await FetchData(page, url, HttpMethod.Get);
+                apiResponse = await page.Context.APIRequest.GetAsync(url);
+                response = await apiResponse.TextAsync();
             }
 
             var data = JsonConvert.DeserializeObject<StockHolderResponse>(response);
 
             if (data?.Success == true && data.Result != null)
             {
+                // Add all headers from the successful response to the headers list
+                var responseHeaders = apiResponse.Headers;
+                foreach (var header in responseHeaders)
+                {
+                    headers.Add(new KeyValuePair<string, string>(header.Key, header.Value));
+                }
+                Console.WriteLine($"Added {responseHeaders.Count} headers from queryStockHolderNoList.do response");
+
                 return [.. data.Result.Select(s => s.StockHolderNo)];
             }
         }
