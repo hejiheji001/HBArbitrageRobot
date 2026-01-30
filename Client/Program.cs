@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Client.Models;
 
-class Program
+partial class Program
 {
     // Interface for error notification - can be extended to webhook integration
     private interface IErrorNotifier
@@ -25,17 +25,125 @@ class Program
             return Task.CompletedTask;
         }
     }
-    
+
     private static readonly IErrorNotifier errorNotifier = new ConsoleErrorNotifier();
+
+    static readonly HttpClient httpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(10)
+    };
+
+    static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
+    {
+        // First check command line arguments
+        if (args.Length > argIndex && !string.IsNullOrEmpty(args[argIndex]))
+        {
+            return args[argIndex];
+        }
+
+        // Then check environment variables
+        var envValue = Environment.GetEnvironmentVariable(envVarName);
+        if (!string.IsNullOrEmpty(envValue))
+        {
+            return envValue;
+        }
+
+        // Return default value if provided
+        return defaultValue ?? string.Empty;
+    }
+
+    static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, int retryDelaySeconds)
+    {
+        try
+        {
+            // Step 1: Fetch LOF arbitrage data from Server API first
+            Console.WriteLine($"\nFetching LOF arbitrage data from API: {apiUrl}/api/data");
+
+            var (lofData, shouldWait) = await FetchLofDataFromApi(apiUrl);
+
+            // Check if server returned empty with wait message
+            if (shouldWait)
+            {
+                Console.WriteLine("\n⏸️  Server indicated to wait. No arbitrage opportunities available now.");
+                Console.WriteLine("   Entering standby mode...");
+                return; // Exit to standby mode
+            }
+
+            if (lofData == null || lofData.Count == 0)
+            {
+                Console.WriteLine("ℹ️  No LOF data available from API (but no wait message). Entering standby mode...");
+                return; // Exit to standby mode
+            }
+
+            Console.WriteLine($"✓ Fetched {lofData.Count} LOF arbitrage items");
+
+            // Step 2: Launch browser and login
+            Console.WriteLine("\nInitializing Playwright...");
+
+            IPlaywright? playwright = null;
+            IBrowser? browser = null;
+
+            // Determine if we should run headless
+            // In development mode, default to showing the browser UI
+            // In production, default to headless unless explicitly set to false
+            var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" ||
+                                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
+            var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
+            bool headless;
+
+            if (!string.IsNullOrEmpty(headlessEnv))
+            {
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                {
+                    Console.WriteLine("ERROR: Username and password are required.");
+                    Console.WriteLine("Usage:");
+                    Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment] [retry_delay_seconds]");
+                    Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME, MAX_INVESTMENT, RETRY_DELAY_SECONDS environment variables");
+                    throw new InvalidOperationException("Username and password are required");
+                }
+
+                await RunArbitrageWorkflowAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder, lofData);
+
+                // If successful, wait and retry
+                Console.WriteLine($"\n✓ Workflow completed successfully. Waiting {retryDelaySeconds} seconds before next run...");
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\n✗ ERROR: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"\nRecovering from error. Waiting {retryDelaySeconds} seconds before retry...");
+            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+        }
+    }
+
 
     static async Task Main(string[] args)
     {
         Console.WriteLine("HBArbitrageRobot Client Starting...");
         Console.WriteLine("Running in continuous mode - will check for arbitrage opportunities periodically");
 
-        // Configurable retry delay in seconds (default: 60 seconds)
-        int retryDelaySeconds = 60;
-        
+        // Parse arguments or environment variables for credentials
+        var username = GetConfig(args, "USERNAME", 0);
+        var password = GetConfig(args, "PASSWORD", 1);
+        var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
+        var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
+        var retryDelaySeconds = 60; // Default retry delay
+
+        // Configurable max investment per stock holder per fund (in yuan)
+        decimal maxInvestmentPerHolder = 1000m;
+        try
+        {
+            var maxInvestmentConfig = GetConfig(args, "MAX_INVESTMENT", 5, "1000");
+            maxInvestmentPerHolder = decimal.Parse(maxInvestmentConfig);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to parse MAX_INVESTMENT, using default of 1000 yuan. Error: {ex.Message}");
+        }
+
         // Try to parse retry delay early, but use default if it fails
         try
         {
@@ -48,7 +156,7 @@ class Program
                 
                 try
                 {
-                    await RunArbitrageCycleAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder);
+                    await RunArbitrageCycleAsync(username, password, apiUrl, purchaseTime, maxInvestmentPerHolder, retryDelaySeconds);
                 }
                 catch (Exception ex)
                 {
@@ -66,102 +174,69 @@ class Program
             Environment.Exit(1);
         }
     }
-    
-    private static async Task RunArbitrageCycleAsync(string username, string password, string apiUrl, 
-        string purchaseTime, decimal maxInvestmentPerHolder)
+
+    static async Task<List<string>> FetchStockHolderList(IPage page)
     {
         try
         {
-            // Set Playwright to use running directory for browser installation if not already set
-            // This prevents the default AppData location from being used
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
-            {
-                retryDelaySeconds = int.Parse(retryDelayConfig);
-            }
-            
-            // Step 1: Fetch LOF arbitrage data from Server API first
-            Console.WriteLine($"\nFetching LOF arbitrage data from API: {apiUrl}/api/data");
-            
-            var (lofData, shouldWait) = await FetchLofDataFromApi(apiUrl);
-            
-            // Check if server returned empty with wait message
-            if (shouldWait)
-            {
-                Console.WriteLine("\n⏸️  Server indicated to wait. No arbitrage opportunities available now.");
-                Console.WriteLine("   Entering standby mode...");
-                return; // Exit to standby mode
-            }
-            
-            if (lofData == null || lofData.Count == 0)
-            {
-                Console.WriteLine("ℹ️  No LOF data available from API (but no wait message). Entering standby mode...");
-                return; // Exit to standby mode
-            }
-            
-            Console.WriteLine($"✓ Fetched {lofData.Count} LOF arbitrage items");
-            
-            // Step 2: Launch browser and login
-            Console.WriteLine("\nInitializing Playwright...");
-            
-            IPlaywright? playwright = null;
-            IBrowser? browser = null;
-            
-            // Determine if we should run headless
-            // In development mode, default to showing the browser UI
-            // In production, default to headless unless explicitly set to false
-            var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" || 
-                                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            
-            var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
-            bool headless;
-            
-            if (!string.IsNullOrEmpty(headlessEnv))
-            {
-                // Parse arguments or environment variables for credentials
-                var username = GetConfig(args, "USERNAME", 0);
-                var password = GetConfig(args, "PASSWORD", 1);
-                var apiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
-                var txnPassword = GetConfig(args, "PWD", 3);
-                var purchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
-                
-                // Configurable max investment per stock holder per fund (in yuan)
-                decimal maxInvestmentPerHolder = 1000m;
-                try
-                {
-                    var maxInvestmentConfig = GetConfig(args, "MAX_INVESTMENT", 5, "1000");
-                    maxInvestmentPerHolder = decimal.Parse(maxInvestmentConfig);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Warning: Failed to parse MAX_INVESTMENT, using default of 1000 yuan. Error: {ex.Message}");
-                }
+            // Use Playwright's API request context to make the request with the authenticated session
+            var response = await page.Context.APIRequest.GetAsync("https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do");
 
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-                {
-                    Console.WriteLine("ERROR: Username and password are required.");
-                    Console.WriteLine("Usage:");
-                    Console.WriteLine("  Testing: dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment] [retry_delay_seconds]");
-                    Console.WriteLine("  Production: Set USERNAME, PASSWORD, PWD, PURCHASE_TIME, MAX_INVESTMENT, RETRY_DELAY_SECONDS environment variables");
-                    throw new InvalidOperationException("Username and password are required");
-                }
-                
-                await RunArbitrageWorkflowAsync(username, password, apiUrl, txnPassword, purchaseTime, maxInvestmentPerHolder);
-                
-                // If successful, wait and retry
-                Console.WriteLine($"\n✓ Workflow completed successfully. Waiting {retryDelaySeconds} seconds before next run...");
-                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
-            }
-            catch (Exception ex)
+            if (response.Ok)
             {
-                Console.WriteLine($"\n✗ ERROR: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                Console.WriteLine($"\nRecovering from error. Waiting {retryDelaySeconds} seconds before retry...");
-                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+                var json = await response.TextAsync();
+                Console.WriteLine($"Stock holder response: {json}");
+
+                var data = JsonConvert.DeserializeObject<StockHolderResponse>(json);
+
+                if (data?.Success == true && data.Result != null)
+                {
+                    return [.. data.Result.Select(s => s.StockHolderNo)];
+                }
             }
+            else
+            {
+                Console.WriteLine($"Failed to fetch stock holders. Status: {response.Status}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching stock holders: {ex.Message}");
+        }
+
+        return [];
+    }
+
+    static async Task<bool> CreateArbitrage(IPage page, CreateArbitrageRequest request)
+    {
+        try
+        {
+            var json = JsonConvert.SerializeObject(request);
+            Console.WriteLine($"\nSending POST request to createLofArbitrage.do");
+            Console.WriteLine($"Payload: {json}");
+
+            // Use Playwright's API request context to make the POST request with the authenticated session
+            var response = await page.Context.APIRequest.PostAsync(
+                "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
+                new APIRequestContextOptions
+                {
+                    DataObject = request
+                });
+
+            var responseText = await response.TextAsync();
+            Console.WriteLine($"Response status: {response.Status}");
+            Console.WriteLine($"Response body: {responseText}");
+
+            return response.Ok;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating arbitrage: {ex.Message}");
+            return false;
         }
     }
 
-    private static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string txnPassword, string purchaseTime, decimal maxInvestmentPerHolder)
+    static async Task RunArbitrageWorkflowAsync(string username, string password, string apiUrl, string purchaseTime, decimal maxInvestmentPerHolder, List<LofArbitrageData> lofData)
     {
         // Set Playwright to use running directory for browser installation if not already set
         // This prevents the default AppData location from being used
@@ -171,22 +246,22 @@ class Program
             Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
             Console.WriteLine("Set PLAYWRIGHT_BROWSERS_PATH=0 (using running directory for browsers)");
         }
-        
+
         // Step 1: Launch browser and login
         Console.WriteLine("\nInitializing Playwright...");
-        
+
         IPlaywright? playwright = null;
         IBrowser? browser = null;
-        
+
         // Determine if we should run headless
         // In development mode, default to showing the browser UI
         // In production, default to headless unless explicitly set to false
-        var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" || 
+        var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" ||
                             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-        
+
         var headlessEnv = Environment.GetEnvironmentVariable("HEADLESS");
         bool headless;
-        
+
         if (!string.IsNullOrEmpty(headlessEnv))
         {
             // If HEADLESS is explicitly set, use that value
@@ -197,288 +272,276 @@ class Program
             // Default behavior: show UI in development, hide in production
             headless = !isDevelopment;
         }
-        
+
         Console.WriteLine($"Running in {(isDevelopment ? "Development" : "Production")} mode");
         Console.WriteLine($"Browser mode: {(headless ? "Headless" : "Visible UI")}");
-        
+
         // Try to initialize Playwright with one retry after installation if needed
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try
+            {
+                playwright = await Playwright.CreateAsync();
+
+                // Launch browser (use headless in production)
+                browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
                 {
-                    playwright = await Playwright.CreateAsync();
-                    
-                    // Launch browser (use headless in production)
-                    browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-                    {
-                        Headless = headless
-                    });
-                    break; // Success - exit the retry loop
-                }
-                catch (Exception ex) when ((ex.Message.Contains("Executable doesn't exist") || 
-                                           ex.Message.Contains("Playwright was just installed")) && attempt == 0)
+                    Headless = headless
+                });
+                break; // Success - exit the retry loop
+            }
+            catch (Exception ex) when ((ex.Message.Contains("Executable doesn't exist") ||
+                                       ex.Message.Contains("Playwright was just installed")) && attempt == 0)
+            {
+                // Dispose playwright if it was created before the browser launch failed
+                playwright?.Dispose();
+                playwright = null;
+
+                Console.WriteLine("\nPlaywright browsers are not installed.");
+                Console.Write("Would you like to install Playwright browsers now? (Y/N): ");
+
+                var response = Console.ReadLine()?.Trim().ToUpperInvariant();
+
+                if (response == "Y" || response == "YES")
                 {
-                    // Dispose playwright if it was created before the browser launch failed
-                    playwright?.Dispose();
-                    playwright = null;
-                    
-                    Console.WriteLine("\nPlaywright browsers are not installed.");
-                    Console.Write("Would you like to install Playwright browsers now? (Y/N): ");
-                    
-                    var response = Console.ReadLine()?.Trim().ToUpperInvariant();
-                    
-                    if (response == "Y" || response == "YES")
+                    Console.WriteLine("\nInstalling Playwright browsers...");
+                    Console.WriteLine("This may take a few minutes. Please wait...");
+
+                    // Run Playwright install command
+                    var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
+
+                    if (exitCode == 0)
                     {
-                        Console.WriteLine("\nInstalling Playwright browsers...");
-                        Console.WriteLine("This may take a few minutes. Please wait...");
-                        
-                        // Run Playwright install command
-                        var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
-                        
-                        if (exitCode == 0)
-                        {
-                            Console.WriteLine("\n✓ Playwright browsers installed successfully!");
-                            Console.WriteLine("Retrying browser initialization...\n");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
-                            throw;
-                        }
+                        Console.WriteLine("\n✓ Playwright browsers installed successfully!");
+                        Console.WriteLine("Retrying browser initialization...\n");
                     }
                     else
                     {
-                        Console.WriteLine("\nPlaywright installation cancelled.");
+                        Console.WriteLine($"\n✗ Failed to install Playwright browsers. Exit code: {exitCode}");
                         throw;
                     }
                 }
-                catch (Exception)
+                else
                 {
-                    // Clean up on any other exception
-                    playwright?.Dispose();
+                    Console.WriteLine("\nPlaywright installation cancelled.");
                     throw;
                 }
             }
-            
-        if (playwright == null || browser == null)
-        {
-            throw new InvalidOperationException("Failed to initialize Playwright after installation");
-        }
-        
-        using (playwright)
-        await using (browser)
-        {
-            // Use mobile device emulation since the URLs are mobile pages
-            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
-            var page = await context.NewPageAsync();
 
-            // Step 3: Navigate to login page
-            var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
-            Console.WriteLine($"\nNavigating to login page: {loginUrl}");
-            await page.GotoAsync(loginUrl);
-
-            // Wait for page to load
-            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-            
-            // Step 4: Perform login
-            Console.WriteLine("Attempting login...");
-            
-            try
+            if (playwright == null || browser == null)
             {
-                // Wait for login form elements - based on actual DOM structure
-                await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
-                
-                // Fill in credentials using actual DOM selectors
-                var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
-                var passwordSelector = "input[type='tel'][max='6'].hide_input";
-                var checkboxSelector = "div.check-input";
-                var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
-                
-                await page.FillAsync(usernameSelector, username);
-                await page.FillAsync(passwordSelector, password);
-                
-                // Click the confirmation checkbox before submitting
-                Console.WriteLine("Clicking confirmation checkbox...");
-                await page.ClickAsync(checkboxSelector);
-                
-                // Wait a moment for the button to become enabled
-                await Task.Delay(500);
-                
-                Console.WriteLine("Credentials entered, submitting...");
-                await page.ClickAsync(submitSelector);
-                
-                // Wait for navigation after login
+                throw new InvalidOperationException("Failed to initialize Playwright after installation");
+            }
+
+            using (playwright)
+            await using (browser)
+            {
+                // Use mobile device emulation since the URLs are mobile pages
+                var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+                var page = await context.NewPageAsync();
+
+                // Step 3: Navigate to login page
+                var loginUrl = "https://m.touker.com/account/login/index.htm?loginType=normal&referrer=https://m.touker.com/fd/lofrobot/sceneConstruction#/oauth/custLogin";
+                Console.WriteLine($"\nNavigating to login page: {loginUrl}");
+                await page.GotoAsync(loginUrl);
+
+                // Wait for page to load
                 await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-                
-                // Add additional wait to ensure session is fully established
-                Console.WriteLine("Waiting for session to be established...");
-                await Task.Delay(3000); // 3 seconds
-                
-                Console.WriteLine("Login submitted successfully");
-                Console.WriteLine($"Current URL after login: {page.Url}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
-                Console.WriteLine("Continuing to navigate to main page...");
-            }
 
-            // Step 5: Navigate to the main page after login
-            var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
-            Console.WriteLine($"\nNavigating to main page: {mainUrl}");
-            
-            // Add retry logic for navigation to handle transient errors
-            int maxRetries = 3;
-            int retryDelay = 2000; // 2 seconds
-            bool navigationSuccess = false;
-            Exception? lastException = null;
-            
-            for (int retry = 0; retry < maxRetries; retry++)
-            {
+                // Step 4: Perform login
+                Console.WriteLine("Attempting login...");
+
                 try
                 {
-                    if (retry > 0)
-                    {
-                        Console.WriteLine($"Navigation attempt {retry + 1} of {maxRetries}...");
-                        await Task.Delay(retryDelay);
-                    }
-                    
-                    // Use a longer timeout and wait for networkidle instead of load
-                    await page.GotoAsync(mainUrl, new PageGotoOptions
-                    {
-                        Timeout = 30000, // 30 seconds
-                        WaitUntil = WaitUntilState.NetworkIdle
-                    });
-                    
-                    navigationSuccess = true;
-                    Console.WriteLine("Successfully navigated to main page");
-                    break;
+                    // Wait for login form elements - based on actual DOM structure
+                    await page.WaitForSelectorAsync("input[type='tel'][placeholder='华宝证券客户号']", new PageWaitForSelectorOptions { Timeout = 10000 });
+
+                    // Fill in credentials using actual DOM selectors
+                    var usernameSelector = "input[type='tel'][placeholder='华宝证券客户号']";
+                    var passwordSelector = "input[type='tel'][max='6'].hide_input";
+                    var checkboxSelector = "div.check-input";
+                    var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
+
+                    await page.FillAsync(usernameSelector, username);
+                    await page.FillAsync(passwordSelector, password);
+
+                    // Click the confirmation checkbox before submitting
+                    Console.WriteLine("Clicking confirmation checkbox...");
+                    await page.ClickAsync(checkboxSelector);
+
+                    // Wait a moment for the button to become enabled
+                    await Task.Delay(500);
+
+                    Console.WriteLine("Credentials entered, submitting...");
+                    await page.ClickAsync(submitSelector);
+
+                    // Wait for navigation after login
+                    await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+                    // Add additional wait to ensure session is fully established
+                    Console.WriteLine("Waiting for session to be established...");
+                    await Task.Delay(3000); // 3 seconds
+
+                    Console.WriteLine("Login submitted successfully");
+                    Console.WriteLine($"Current URL after login: {page.Url}");
                 }
                 catch (Exception ex)
                 {
-                    lastException = ex;
-                    Console.WriteLine($"Navigation attempt {retry + 1} failed: {ex.Message}");
-                    
-                    // Check if it's an ERR_ABORTED or similar navigation error
-                    if (ex.Message.Contains("ERR_ABORTED") || ex.Message.Contains("net::"))
+                    Console.WriteLine($"Note: Login selectors may need adjustment. Error: {ex.Message}");
+                    Console.WriteLine("Continuing to navigate to main page...");
+                }
+
+                // Step 5: Navigate to the main page after login
+                var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
+                Console.WriteLine($"\nNavigating to main page: {mainUrl}");
+
+                // Add retry logic for navigation to handle transient errors
+                int maxRetries = 3;
+                int retryDelay = 2000; // 2 seconds
+                bool navigationSuccess = false;
+                Exception? lastException = null;
+
+                for (int retry = 0; retry < maxRetries; retry++)
+                {
+                    try
                     {
-                        Console.WriteLine("Detected network error, will retry...");
-                        // Wait a bit longer for network errors
-                        if (retry < maxRetries - 1)
+                        if (retry > 0)
                         {
+                            Console.WriteLine($"Navigation attempt {retry + 1} of {maxRetries}...");
                             await Task.Delay(retryDelay);
                         }
-                    }
-                    else
-                    {
-                        // For other errors, don't retry
+
+                        // Use a longer timeout and wait for networkidle instead of load
+                        await page.GotoAsync(mainUrl, new PageGotoOptions
+                        {
+                            Timeout = 30000, // 30 seconds
+                            WaitUntil = WaitUntilState.NetworkIdle
+                        });
+
+                        navigationSuccess = true;
+                        Console.WriteLine("Successfully navigated to main page");
                         break;
                     }
+                    catch (Exception ex)
+                    {
+                        lastException = ex;
+                        Console.WriteLine($"Navigation attempt {retry + 1} failed: {ex.Message}");
+
+                        // Check if it's an ERR_ABORTED or similar navigation error
+                        if (ex.Message.Contains("ERR_ABORTED") || ex.Message.Contains("net::"))
+                        {
+                            Console.WriteLine("Detected network error, will retry...");
+                            // Wait a bit longer for network errors
+                            if (retry < maxRetries - 1)
+                            {
+                                await Task.Delay(retryDelay);
+                            }
+                        }
+                        else
+                        {
+                            // For other errors, don't retry
+                            break;
+                        }
+                    }
                 }
-            }
-            
-            if (!navigationSuccess)
-            {
-                Console.WriteLine($"\n✗ Failed to navigate to main page after {maxRetries} attempts");
-                Console.WriteLine($"Last error: {lastException?.Message}");
-                Console.WriteLine("\nPossible reasons:");
-                Console.WriteLine("  - Login session may have expired or failed");
-                Console.WriteLine("  - Network connectivity issues");
-                Console.WriteLine("  - The website may be blocking automated access");
-                Console.WriteLine($"\nCurrent page URL: {page.Url}");
-                throw new InvalidOperationException("Failed to navigate to main page", lastException);
-            }
-            
-            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-            Console.WriteLine("Page URL: " + page.Url);
 
-            // Step 6: Fetch stock holder list from the API
-            Console.WriteLine("\nFetching stock holder list...");
-            var stockHolderList = await FetchStockHolderList(page);
-            
-            if (stockHolderList.Count == 0)
-            {
-                throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
-            }
-            
-            Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
-            for (int i = 0; i < stockHolderList.Count; i++)
-            {
-                Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
-            }
+                if (!navigationSuccess)
+                {
+                    Console.WriteLine($"\n✗ Failed to navigate to main page after {maxRetries} attempts");
+                    Console.WriteLine($"Last error: {lastException?.Message}");
+                    Console.WriteLine("\nPossible reasons:");
+                    Console.WriteLine("  - Login session may have expired or failed");
+                    Console.WriteLine("  - Network connectivity issues");
+                    Console.WriteLine("  - The website may be blocking automated access");
+                    Console.WriteLine($"\nCurrent page URL: {page.Url}");
+                    throw new InvalidOperationException("Failed to navigate to main page", lastException);
+                }
 
-            // Step 7: Calculate total investment based on Amount field
-            decimal totalInvestment = 0;
-            
-            Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
-            
-            foreach (var item in lofData)
-            {
-                // Use the Amount field from the API (already converted from ApplyStatus)
-                var applyLimit = item.Amount;
-                // Take the minimum of apply_status limit and configured max investment per holder
-                var effectiveLimit = Math.Min(applyLimit, maxInvestmentPerHolder);
-                var investmentPerFund = stockHolderList.Count * effectiveLimit;
-                totalInvestment += investmentPerFund;
-                
-                Console.WriteLine($"  - Fund: {item.LofFund}");
-                Console.WriteLine($"    Apply Status: {item.ApplyStatus}, Amount: {applyLimit} yuan");
-                Console.WriteLine($"    Effective Limit: {effectiveLimit} yuan per holder");
-                Console.WriteLine($"    Investment: {stockHolderList.Count} holders × {effectiveLimit} yuan = {investmentPerFund} yuan");
-            }
-            
-            Console.WriteLine($"\nTotal Investment Summary:");
-            Console.WriteLine($"  - Number of Stock Holders: {stockHolderList.Count}");
-            Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
-            Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
+                await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+                Console.WriteLine("Page URL: " + page.Url);
 
-            // Step 8: Create arbitrage request
-            var request = new CreateArbitrageRequest
-            {
-                StockHolderList = stockHolderList,
-                PurchaseTime = purchaseTime,
-                List = lofData,
-                Password = txnPassword
-            };
+                // Step 6: Fetch stock holder list from the API
+                Console.WriteLine("\nFetching stock holder list...");
+                var stockHolderList = await FetchStockHolderList(page);
 
-            Console.WriteLine($"\nCreating arbitrage with:");
-            Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
-            Console.WriteLine($"  - Purchase Time: {purchaseTime}");
-            Console.WriteLine($"  - LOF Items: {lofData.Count}");
+                if (stockHolderList.Count == 0)
+                {
+                    throw new InvalidOperationException("No stock holders found. Cannot proceed with arbitrage creation.");
+                }
 
-            // Step 9: Send POST request to create arbitrage
-            var success = await CreateArbitrage(page, request);
-            
-            if (success)
-            {
-                Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
-            }
-            else
-            {
-                throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
-            }
+                Console.WriteLine($"Found {stockHolderList.Count} stock holders:");
+                for (int i = 0; i < stockHolderList.Count; i++)
+                {
+                    Console.WriteLine($"  - {stockHolderList[i]} ({i + 1}/{stockHolderList.Count})");
+                }
 
-            // Keep browser open for a moment to see the result
-            if (!headless)
-            {
-                Console.WriteLine("\nPress Enter to continue to standby mode...");
-                Console.ReadLine();
-            }
-            else
-            {
-                // In headless mode, wait a bit before closing
-                await Task.Delay(5000);
-            }
+                // Step 7: Calculate total investment based on Amount field
+                decimal totalInvestment = 0;
+
+                Console.WriteLine($"\nInvestment Calculation (Max per holder: {maxInvestmentPerHolder} yuan):");
+
+                foreach (var item in lofData)
+                {
+                    // Use the Amount field from the API (already converted from ApplyStatus)
+                    var applyLimit = item.Amount;
+                    // Take the minimum of apply_status limit and configured max investment per holder
+                    var effectiveLimit = Math.Min(applyLimit, maxInvestmentPerHolder);
+                    var investmentPerFund = stockHolderList.Count * effectiveLimit;
+                    totalInvestment += investmentPerFund;
+
+                    Console.WriteLine($"  - Fund: {item.LofFund}");
+                    Console.WriteLine($"    Apply Status: {item.ApplyStatus}, Amount: {applyLimit} yuan");
+                    Console.WriteLine($"    Effective Limit: {effectiveLimit} yuan per holder");
+                    Console.WriteLine($"    Investment: {stockHolderList.Count} holders × {effectiveLimit} yuan = {investmentPerFund} yuan");
+                }
+
+                Console.WriteLine($"\nTotal Investment Summary:");
+                Console.WriteLine($"  - Number of Stock Holders: {stockHolderList.Count}");
+                Console.WriteLine($"  - Number of LOF Funds: {lofData.Count}");
+                Console.WriteLine($"  - Total Investment Amount: {totalInvestment} yuan");
+
+                // Step 8: Create arbitrage request
+                var request = new CreateArbitrageRequest
+                {
+                    StockHolderList = stockHolderList,
+                    PurchaseTime = purchaseTime,
+                    List = lofData,
+                    Password = password
+                };
+
+                Console.WriteLine($"\nCreating arbitrage with:");
+                Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
+                Console.WriteLine($"  - Purchase Time: {purchaseTime}");
+                Console.WriteLine($"  - LOF Items: {lofData.Count}");
+
+                // Step 9: Send POST request to create arbitrage
+                var success = await CreateArbitrage(page, request);
+
+                if (success)
+                {
+                    Console.WriteLine("\n✅ Arbitrage created successfully! All green.");
+                }
+                else
+                {
+                    throw new InvalidOperationException("Failed to create arbitrage. Check logs for details.");
+                }
+
+                // Keep browser open for a moment to see the result
+                if (!headless)
+                {
+                    Console.WriteLine("\nPress Enter to continue to standby mode...");
+                    Console.ReadLine();
+                }
+                else
+                {
+                    // In headless mode, wait a bit before closing
+                    await Task.Delay(5000);
+                }
             } // Close using blocks
         }
-        catch (Exception)
-        {
-            // Re-throw to be handled by the caller
-            throw;
-        }
     }
-    
-    private static async Task EnterStandbyModeAsync()
+
+    static async Task EnterStandbyModeAsync()
     {
         Console.WriteLine("\n" + new string('-', 80));
         Console.WriteLine("Entering standby mode...");
@@ -543,64 +606,8 @@ class Program
         
         Console.WriteLine($"\n⏰ Waking up at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
     }
-
-    private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
-    {
-        // First check command line arguments
-        if (args.Length > argIndex && !string.IsNullOrEmpty(args[argIndex]))
-        {
-            return args[argIndex];
-        }
-
-        // Then check environment variables
-        var envValue = Environment.GetEnvironmentVariable(envVarName);
-        if (!string.IsNullOrEmpty(envValue))
-        {
-            return envValue;
-        }
-
-        // Return default value if provided
-        return defaultValue ?? string.Empty;
-    }
-
-    private static async Task<List<string>> FetchStockHolderList(IPage page)
-    {
-        try
-        {
-            // Use Playwright's API request context to make the request with the authenticated session
-            var response = await page.Context.APIRequest.GetAsync("https://m.touker.com/lofarbitrage/lof/arbitrage/queryStockHolderNoList.do");
-            
-            if (response.Ok)
-            {
-                var json = await response.TextAsync();
-                Console.WriteLine($"Stock holder response: {json}");
-                
-                var data = JsonConvert.DeserializeObject<StockHolderResponse>(json);
-                
-                if (data?.Success == true && data.Result != null)
-                {
-                    return [.. data.Result.Select(s => s.StockHolderNo)];
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to fetch stock holders. Status: {response.Status}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error fetching stock holders: {ex.Message}");
-        }
-        
-        return [];
-    }
-
-    private static readonly HttpClient httpClient = new HttpClient
-    {
-        Timeout = TimeSpan.FromSeconds(10)
-    };
     
-    private static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
+    static async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApi(string baseUrl)
     {
         try
         {
@@ -646,35 +653,6 @@ class Program
         {
             Console.WriteLine($"Failed to fetch data from API: {ex.Message}");
             return (null, false);
-        }
-    }
-
-    private static async Task<bool> CreateArbitrage(IPage page, CreateArbitrageRequest request)
-    {
-        try
-        {
-            var json = JsonConvert.SerializeObject(request);
-            Console.WriteLine($"\nSending POST request to createLofArbitrage.do");
-            Console.WriteLine($"Payload: {json}");
-            
-            // Use Playwright's API request context to make the POST request with the authenticated session
-            var response = await page.Context.APIRequest.PostAsync(
-                "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
-                new APIRequestContextOptions
-                {
-                    DataObject = request
-                });
-            
-            var responseText = await response.TextAsync();
-            Console.WriteLine($"Response status: {response.Status}");
-            Console.WriteLine($"Response body: {responseText}");
-            
-            return response.Ok;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error creating arbitrage: {ex.Message}");
-            return false;
         }
     }
 }
