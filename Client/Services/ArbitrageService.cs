@@ -63,7 +63,7 @@ public class ArbitrageService
             };
 
             Console.WriteLine($"Sending POST request to createLofArbitrage.do");
-            Console.WriteLine($"Payload: {json}");
+            // Note: Not logging payload as it contains sensitive password information
 
             var payload = new APIRequestContextOptions
             {

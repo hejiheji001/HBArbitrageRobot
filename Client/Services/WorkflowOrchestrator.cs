@@ -37,27 +37,30 @@ public class WorkflowOrchestrator
         var (playwright, browser) = await _browserService.InitializeBrowserAsync();
         
         using (playwright)
-        await using (browser)
         {
-            var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
-            var page = await context.NewPageAsync();
+            await using (browser)
+            {
+                var context = await browser.NewContextAsync(playwright.Devices["iPhone 13 Pro"]);
+                var page = await context.NewPageAsync();
 
-            // Login
-            await NavigateToLoginAndAuthenticateAsync(page);
+                // Login
+                await NavigateToLoginAndAuthenticateAsync(page);
 
-            // Navigate to main page
-            await NavigateToMainPageAsync(page);
+                // Navigate to main page
+                await NavigateToMainPageAsync(page);
 
-            // Fetch stock holder list
-            var stockHolderList = await FetchAndValidateStockHoldersAsync(page);
+                // Fetch stock holder list
+                var stockHolderList = await FetchAndValidateStockHoldersAsync(page);
 
-            // Calculate investments
-            _arbitrageService.CalculateInvestments(lofData, stockHolderList, _config.MaxInvestmentPerHolder);
+                // Calculate investments
+                _arbitrageService.CalculateInvestments(lofData, stockHolderList, _config.MaxInvestmentPerHolder);
 
-            // Create arbitrage orders
-            await CreateArbitrageOrdersAsync(page, lofData, stockHolderList);
+                // Create arbitrage orders
+                await CreateArbitrageOrdersAsync(page, lofData, stockHolderList);
 
-            await Task.Delay(5000);
+                // Wait for operations to complete
+                await Task.Delay(5000);
+            }
         }
     }
 

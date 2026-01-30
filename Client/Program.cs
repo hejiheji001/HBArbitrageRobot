@@ -4,9 +4,15 @@ using Client.Services;
 internal partial class Program
 {
     private static readonly IErrorNotifier _errorNotifier = new ConsoleErrorNotifier();
-    private static ConfigurationService _config = new();
-    private static ApiClientService _apiClient = new();
-    private static SchedulingService _scheduler = new();
+    private static readonly ConfigurationService _config = new();
+    private static readonly ApiClientService _apiClient = new();
+    private static readonly SchedulingService _scheduler = new();
+    
+    // Services that depend on configuration - initialized after config is loaded
+    private static BrowserService? _browserService;
+    private static AuthenticationService? _authService;
+    private static ArbitrageService? _arbitrageService;
+    private static WorkflowOrchestrator? _orchestrator;
 
     private static async Task Main(string[] args)
     {
@@ -16,6 +22,9 @@ internal partial class Program
 
         // Load configuration
         _config.LoadConfiguration(args);
+        
+        // Initialize services that depend on configuration
+        InitializeServices();
 
         try
         {
@@ -45,6 +54,14 @@ internal partial class Program
             await _errorNotifier.NotifyAsync("Fatal error in main loop", ex);
             Environment.Exit(1);
         }
+    }
+
+    private static void InitializeServices()
+    {
+        _browserService = new BrowserService();
+        _authService = new AuthenticationService(_config.Username, _config.Password);
+        _arbitrageService = new ArbitrageService(_authService);
+        _orchestrator = new WorkflowOrchestrator(_config, _apiClient, _browserService, _authService, _arbitrageService);
     }
 
     private static async Task RunArbitrageCycleAsync()
@@ -104,11 +121,11 @@ internal partial class Program
 
     private static async Task ExecuteArbitrageWorkflowAsync(List<LofArbitrageData> lofData)
     {
-        var browserService = new BrowserService();
-        var authService = new AuthenticationService(_config.Username, _config.Password);
-        var arbitrageService = new ArbitrageService(authService);
-        var orchestrator = new WorkflowOrchestrator(_config, _apiClient, browserService, authService, arbitrageService);
-
-        await orchestrator.RunArbitrageWorkflowAsync(lofData);
+        if (_orchestrator == null)
+        {
+            throw new InvalidOperationException("Services not initialized. Call InitializeServices first.");
+        }
+        
+        await _orchestrator.RunArbitrageWorkflowAsync(lofData);
     }
 }

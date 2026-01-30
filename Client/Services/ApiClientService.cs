@@ -8,15 +8,11 @@ namespace Client.Services;
 /// </summary>
 public class ApiClientService
 {
-    private readonly HttpClient _httpClient;
-
-    public ApiClientService()
+    // Use static HttpClient for proper socket management and performance
+    private static readonly HttpClient _httpClient = new()
     {
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(10)
-        };
-    }
+        Timeout = TimeSpan.FromSeconds(10)
+    };
 
     /// <summary>
     /// Fetch LOF arbitrage data from the server API
