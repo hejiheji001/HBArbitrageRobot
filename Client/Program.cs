@@ -33,9 +33,8 @@ internal partial class Program
         Timeout = TimeSpan.FromSeconds(10)
     };
 
-    private static string? username;
-    private static string? password;
-    private static readonly List<KeyValuePair<string, string>> headers = [];
+    private static string username = string.Empty;
+    private static string password = string.Empty;
 
     private static string GetConfig(string[] args, string envVarName, int argIndex, string? defaultValue = null)
     {
@@ -180,7 +179,7 @@ internal partial class Program
         }
     }
 
-    private static async Task<string> FetchData(IPage page, string url, HttpMethod method)
+    private static async Task<string> FetchData(IPage page, string url, HttpMethod method, APIRequestContextOptions? payload = null)
     {
         var result = string.Empty;
         
@@ -188,7 +187,7 @@ internal partial class Program
         {
             var response = method.Method switch
             {
-                "POST" => await page.Context.APIRequest.PostAsync(url),
+                "POST" => await page.Context.APIRequest.PostAsync(url, payload),
                 "GET" => await page.Context.APIRequest.GetAsync(url),
                 _ => throw new NotImplementedException(),
             };
@@ -247,24 +246,73 @@ internal partial class Program
         try
         {
             var json = JsonConvert.SerializeObject(request);
-            Console.WriteLine($"\nSending POST request to createLofArbitrage.do");
+            var header = new Dictionary<string, string>
+            {
+                { "Content-Type", "text/plain" }
+            };
+
+            Console.WriteLine($"Sending POST request to createLofArbitrage.do");
             Console.WriteLine($"Payload: {json}");
 
+            var payload = new APIRequestContextOptions
+            {
+                DataString = json,
+                Headers = header
+            };
+
             // Use Playwright's API request context to make the POST request with the authenticated session
-            var response = await page.Context.APIRequest.PostAsync(
-                "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do",
-                new APIRequestContextOptions
+            var response = await FetchData(page, "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do", HttpMethod.Post, payload);
+            Console.WriteLine($"Response body: {response}");
+
+            if (response.Contains("申购数量不在配置允许范围"))
+            {
+                Console.WriteLine("Splitting request into multiple smaller requests due to quantity limit...");
+
+                await Task.WhenAll(request.List.Select(async item =>
                 {
-                    DataObject = request,
-                    Headers = headers
-                });
+                    var innerPayload = new APIRequestContextOptions
+                    {
+                        DataString = JsonConvert.SerializeObject(request with
+                        {
+                            List = [item]
+                        }),
+                        Headers = header
+                    };
 
+                    var resp = await FetchData(page, "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do", HttpMethod.Post, innerPayload);
+                    Console.WriteLine($"Processing fund: {item.LofFund} with Amount: {item.LofArbitrage.PurchaseQuantity} @ {resp}");
 
-            var responseText = await response.TextAsync();
-            Console.WriteLine($"Response status: {response.Status}");
-            Console.WriteLine($"Response body: {responseText}");
+                    await Task.Delay(1000); // Small delay between requests
+                    
+                    while (resp.Contains("申购数量不在配置允许范围"))
+                    {
+                        var minifiedAmount = int.Parse(item.LofArbitrage.PurchaseQuantity) / 10 - 1;
 
-            return response.Ok;
+                        if (minifiedAmount < 1)
+                        {
+                            Console.WriteLine("Cannot split further, minimum quantity reached.");
+                            break;
+                        }
+
+                        item.LofArbitrage.PurchaseQuantity = minifiedAmount.ToString();
+
+                        var minifiedPayload = new APIRequestContextOptions
+                        {
+                            DataString = JsonConvert.SerializeObject(request with
+                            {
+                                List = [item]
+                            }),
+                            Headers = header
+                        };
+
+                        resp = await FetchData(page, "https://m.touker.com/lofarbitrage/lof/arbitrage/createLofArbitrage.do", HttpMethod.Post, minifiedPayload);
+                        Console.WriteLine($"Processing fund: {item.LofFund} with Splitted Amount: {item.LofArbitrage.PurchaseQuantity} @ {resp}");
+                        await Task.Delay(1000); // Small delay between requests
+                    }
+                }));
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
@@ -486,6 +534,8 @@ internal partial class Program
                 var effectiveLimit = Math.Min(applyLimit, maxInvestmentPerHolder);
                 var investmentPerFund = stockHolderList.Count * effectiveLimit;
                 totalInvestment += investmentPerFund;
+
+                item.Amount = effectiveLimit; // Update for payload
 
                 Console.WriteLine($"  - Fund: {item.LofFund}");
                 Console.WriteLine($"  - Name: {item.Name}");

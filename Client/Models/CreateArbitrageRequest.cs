@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace Client.Models;
 
-public class CreateArbitrageRequest
+public record CreateArbitrageRequest
 {
     [JsonProperty("stockHolderList")]
     public List<string> StockHolderList { get; set; } = [];
