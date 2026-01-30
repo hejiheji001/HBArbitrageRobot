@@ -317,7 +317,7 @@ internal partial class Program
 
                 foreach (var item in request.List)
                 {
-                    var finalQuantity = decimal.Parse(item.LofArbitrage.PurchaseQuantity);
+                    var finalQuantity = int.Parse(item.LofArbitrage.PurchaseQuantity);
                     var investmentPerFund = request.StockHolderList.Count * finalQuantity;
                     actualTotalInvestment += investmentPerFund;
 
