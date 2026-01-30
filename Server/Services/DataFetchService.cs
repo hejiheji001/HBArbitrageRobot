@@ -121,7 +121,7 @@ public partial class DataFetchService(
             var allFunds = new Dictionary<string, JisiluCell>(); // Use dictionary to prevent duplicates
 
             // Create HttpClient with proper headers for each request
-            using var httpClient = httpClientFactory.CreateClient();
+            using var httpClient = httpClientFactory.CreateClient("DataFetchClient");
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
             httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
