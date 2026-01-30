@@ -310,6 +310,24 @@ internal partial class Program
                         await Task.Delay(1000); // Small delay between requests
                     }
                 }));
+
+                // Print final summary after splitting
+                Console.WriteLine("\n=== Final Investment Summary After Splitting ===");
+                decimal actualTotalInvestment = 0;
+
+                foreach (var item in request.List)
+                {
+                    var finalQuantity = int.Parse(item.LofArbitrage.PurchaseQuantity);
+                    var investmentPerFund = request.StockHolderList.Count * finalQuantity;
+                    actualTotalInvestment += investmentPerFund;
+
+                    Console.WriteLine($"  - Fund: {item.LofFund}");
+                    Console.WriteLine($"    Final Purchase Quantity: {finalQuantity} yuan per holder");
+                    Console.WriteLine($"    Investment: {request.StockHolderList.Count} holders × {finalQuantity} yuan = {investmentPerFund} yuan");
+                }
+
+                Console.WriteLine($"\n  Total Investment After Splitting: {actualTotalInvestment} yuan");
+                Console.WriteLine("================================================\n");
             }
 
             return true;
