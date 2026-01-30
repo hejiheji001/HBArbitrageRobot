@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace Client.Models;
 
@@ -20,23 +20,23 @@ public class LofArbitrageData
 
 public class LofArbitragePayload
 {
-    [JsonPropertyName("lofFund")]
+    [JsonProperty("lofFund")]
     public string LofFund { get; set; } = string.Empty;
 
-    [JsonPropertyName("lofArbitrage")]
+    [JsonProperty("lofArbitrage")]
     public required LofArbitrage LofArbitrage { get; set; }
 
-    [JsonPropertyName("lofArbitrageStrategy")]
+    [JsonProperty("lofArbitrageStrategy")]
     public required LofArbitrageStrategy LofArbitrageStrategy { get; set; }
 }
 
 
 public class LofArbitrage
 {
-    [JsonPropertyName("purchaseDate")]
+    [JsonProperty("purchaseDate")]
     public required string PurchaseDate { get; set; }
 
-    [JsonPropertyName("purchaseQuantity")]
+    [JsonProperty("purchaseQuantity")]
     public required string PurchaseQuantity { get; set; }
 }
 

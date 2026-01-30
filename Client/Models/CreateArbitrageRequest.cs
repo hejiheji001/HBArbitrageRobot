@@ -1,18 +1,18 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace Client.Models;
 
 public class CreateArbitrageRequest
 {
-    [JsonPropertyName("stockHolderList")]
+    [JsonProperty("stockHolderList")]
     public List<string> StockHolderList { get; set; } = [];
 
-    [JsonPropertyName("purchaseTime")]
+    [JsonProperty("purchaseTime")]
     public string PurchaseTime { get; set; } = string.Empty;
 
-    [JsonPropertyName("list")]
+    [JsonProperty("list")]
     public List<LofArbitragePayload> List { get; set; } = [];
 
-    [JsonPropertyName("pwd")]
+    [JsonProperty("pwd")]
     public string Password { get; set; } = string.Empty;
 }
