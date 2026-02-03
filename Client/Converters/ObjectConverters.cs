@@ -32,4 +32,12 @@ public static class ObjectConverters
     {
         return value != null;
     });
+
+    /// <summary>
+    /// Converter that converts IsEnabled boolean to toggle icon
+    /// </summary>
+    public static readonly IValueConverter EnabledToIcon = new FuncValueConverter<bool, string>((value) =>
+    {
+        return value ? "✓" : "✗";
+    });
 }
