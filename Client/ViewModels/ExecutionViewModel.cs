@@ -157,6 +157,9 @@ public class ExecutionViewModel : ViewModelBase
     /// </summary>
     private void AddLogMessageToCollection(string timestampedMessage)
     {
+        // Verify we're on the UI thread - throws if not
+        Avalonia.Threading.Dispatcher.UIThread.VerifyAccess();
+        
         LogMessages.Add(timestampedMessage);
         // Keep only last 1000 messages
         while (LogMessages.Count > 1000)
