@@ -46,6 +46,7 @@ This application supports multiple deployment strategies:
    - Options: Native APK, Remote monitoring, Termux terminal
    - **New**: Automated APK builds via GitHub Actions - see [BUILD_WORKFLOW.md](BUILD_WORKFLOW.md)
    - **Testing**: Test Android APK on Windows - see [ANDROID_TESTING_WINDOWS.md](ANDROID_TESTING_WINDOWS.md)
+   - **Debugging**: Debug on physical Android phone - see [ANDROID_PHONE_DEBUG.md](ANDROID_PHONE_DEBUG.md)
 
 **Recommendation**: For most users, deploy Server to **AWS Lambda** (serverless, scheduled) and use Android device for **monitoring** only. This provides the best cost-to-reliability ratio.
 

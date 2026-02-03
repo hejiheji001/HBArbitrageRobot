@@ -43,6 +43,32 @@
         "DOTNET_ENVIRONMENT": "Development",
         "HEADLESS": "false"
       }
+    },
+    "Android (Physical Device)": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "USERNAME": "120000286633",
+        "PASSWORD": "962464",
+        "API_URL": "https://localhost:64743",
+        "PURCHASE_TIME": "14:15",
+        "MAX_INVESTMENT": "1000"
+      },
+      "nativeDebugging": true
+    },
+    "Android (Physical Device - Production)": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production",
+        "USERNAME": "120000286633",
+        "PASSWORD": "962464",
+        "API_URL": "https://localhost:64743",
+        "PURCHASE_TIME": "14:15",
+        "MAX_INVESTMENT": "1000"
+      },
+      "nativeDebugging": false
     }
   }
 }
