@@ -17,6 +17,9 @@ jobs:
     name: Build Windows Client
     runs-on: windows-latest
 
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,6 +49,9 @@ jobs:
   build-macos:
     name: Build macOS Client
     runs-on: macos-latest
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -87,6 +93,9 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
