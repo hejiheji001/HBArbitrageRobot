@@ -47,12 +47,52 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ShowResultsCommand { get; }
     public ICommand ShowSettingsCommand { get; }
     
-    private void ShowUserManagement() => CurrentView = UserManagementViewModel;
-    private void ShowExecution() => CurrentView = ExecutionViewModel;
+    private void ShowUserManagement() 
+    {
+        try
+        {
+            CurrentView = UserManagementViewModel;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error showing user management: {ex}");
+        }
+    }
+    
+    private void ShowExecution() 
+    {
+        try
+        {
+            CurrentView = ExecutionViewModel;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error showing execution: {ex}");
+        }
+    }
+    
     private void ShowResults() 
     {
-        ResultsViewModel.RefreshResults();
-        CurrentView = ResultsViewModel;
+        try
+        {
+            ResultsViewModel.RefreshResults();
+            CurrentView = ResultsViewModel;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error showing results: {ex}");
+        }
     }
-    private void ShowSettings() => CurrentView = SettingsViewModel;
+    
+    private void ShowSettings() 
+    {
+        try
+        {
+            CurrentView = SettingsViewModel;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error showing settings: {ex}");
+        }
+    }
 }
