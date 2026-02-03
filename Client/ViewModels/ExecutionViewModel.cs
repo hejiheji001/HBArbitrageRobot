@@ -14,15 +14,30 @@ public class ExecutionViewModel : ViewModelBase
     private MultiUserExecutionService? _executionService;
     
     private bool _isExecuting;
-    private string _apiUrl = "http://localhost:5000";
-    private string _purchaseTime = "14:15";
-    private decimal _maxInvestment = 1000m;
+    private string _apiUrl;
+    private string _purchaseTime;
+    private decimal _maxInvestment;
     private string _statusMessage = "Ready to execute";
 
     public ExecutionViewModel(CredentialStorageService credentialStorage, ApiClientService apiClient)
     {
         _credentialStorage = credentialStorage;
         _apiClient = apiClient;
+        
+        // Read configuration from environment variables (set by launchSettings.json)
+        _apiUrl = Environment.GetEnvironmentVariable("API_URL") ?? "http://localhost:5000";
+        _purchaseTime = Environment.GetEnvironmentVariable("PURCHASE_TIME") ?? "14:15";
+        
+        // Parse max investment with error handling
+        var maxInvestmentStr = Environment.GetEnvironmentVariable("MAX_INVESTMENT");
+        if (!string.IsNullOrEmpty(maxInvestmentStr) && decimal.TryParse(maxInvestmentStr, out var maxInv))
+        {
+            _maxInvestment = maxInv;
+        }
+        else
+        {
+            _maxInvestment = 1000m;
+        }
         
         LogMessages = new ObservableCollection<string>();
         
