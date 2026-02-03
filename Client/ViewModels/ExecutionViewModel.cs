@@ -103,7 +103,13 @@ public class ExecutionViewModel : ViewModelBase
             var results = await _executionService.ExecuteForAllUsersAsync();
 
             var successCount = results.Count(r => r.Success);
-            StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
+            
+            // Ensure UI property updates happen on UI thread
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
+            });
+            
             AddLog($"\n=== Execution Complete ===");
             AddLog($"Total users: {results.Count}");
             AddLog($"Successful: {successCount}");
@@ -111,12 +117,22 @@ public class ExecutionViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            // Ensure UI property updates happen on UI thread
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                StatusMessage = $"Error: {ex.Message}";
+            });
+            
             AddLog($"ERROR: {ex.Message}");
         }
         finally
         {
-            IsExecuting = false;
+            // Ensure UI property updates happen on UI thread
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                IsExecuting = false;
+            });
+            
             if (_executionService != null)
             {
                 _executionService.ProgressUpdated -= OnProgressUpdated;
