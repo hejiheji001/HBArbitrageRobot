@@ -148,20 +148,7 @@ public class ExecutionViewModel : ViewModelBase
     private void AddLog(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
-        
-        // Check if we're already on UI thread
-        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-        {
-            AddLogMessageToCollection(timestampedMessage);
-        }
-        else
-        {
-            // Run on UI thread if not already there
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                AddLogMessageToCollection(timestampedMessage);
-            });
-        }
+        AddLogMessageToCollection(timestampedMessage);
     }
 
     private void AddLogMessageToCollection(string timestampedMessage)

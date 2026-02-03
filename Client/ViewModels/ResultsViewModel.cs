@@ -27,7 +27,7 @@ public class ResultsViewModel : ViewModelBase
 
     public void RefreshResults()
     {
-        // Fetch data on background thread to avoid blocking UI
+        // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var results = _credentialStorage.GetExecutionResults(limit: 200);
         
         // Update UI collection on UI thread

@@ -84,7 +84,7 @@ public class UserManagementViewModel : ViewModelBase
 
     private void RefreshUsers()
     {
-        // Fetch data on background thread to avoid blocking UI
+        // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var users = _credentialStorage.GetAllUsers();
         
         // Update UI collection on UI thread
