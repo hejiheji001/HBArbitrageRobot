@@ -107,12 +107,11 @@ internal class Program
             {
                 Console.WriteLine("Error: No enabled users found in database and no credentials provided.");
                 Console.WriteLine("\nUsage:");
-                Console.WriteLine("  dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]");
+                Console.WriteLine("  dotnet run <username> <password> [api_url] [purchase_time] [max_investment]");
                 Console.WriteLine("  dotnet run --cli  # Uses environment variables or loads from database");
                 Console.WriteLine("\nOr set environment variables:");
                 Console.WriteLine("  USERNAME=your_username");
                 Console.WriteLine("  PASSWORD=your_password");
-                Console.WriteLine("  PWD=your_transaction_password");
                 Console.WriteLine("  PURCHASE_TIME=14:15");
                 Console.WriteLine("  API_URL=http://localhost:5000");
                 Console.WriteLine("  MAX_INVESTMENT=1000");

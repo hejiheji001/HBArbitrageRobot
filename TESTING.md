@@ -327,7 +327,7 @@ curl -s -X POST http://localhost:5290/api/data/fetch | jq .
 4. **Run the Client (with test credentials):**
    ```bash
    cd ../Client
-   dotnet run testuser testpass http://localhost:5290 testpwd 14:15
+   dotnet run testuser testpass http://localhost:5290 14:15
    ```
 
 5. **Clean up:**

@@ -147,10 +147,10 @@ Run with command-line arguments or `--cli` flag for console-only operation:
 **With explicit arguments:**
 ```bash
 cd Client
-dotnet run -- <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
+dotnet run -- <username> <password> [api_url] [purchase_time] [max_investment]
 
 # Example:
-dotnet run -- myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
+dotnet run -- myuser mypass http://localhost:5000 14:15 1000
 ```
 
 **With environment variables:**
@@ -158,7 +158,6 @@ dotnet run -- myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
 cd Client
 export USERNAME="your_username"
 export PASSWORD="your_password"
-export PWD="your_transaction_password"
 export PURCHASE_TIME="14:15"
 export API_URL="http://localhost:5000"
 export MAX_INVESTMENT="1000"
@@ -184,7 +183,7 @@ export DOTNET_ENVIRONMENT=Development
 # Or: export ASPNETCORE_ENVIRONMENT=Development
 # Or: export HEADLESS=false
 
-dotnet run -- myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
+dotnet run -- myuser mypass http://localhost:5000 14:15 1000
 ```
 
 ## Docker Deployment
@@ -196,7 +195,6 @@ Create a `.env` file in the project root:
 ```env
 USERNAME=your_username
 PASSWORD=your_password
-PWD=your_transaction_password
 PURCHASE_TIME=14:15
 ```
 
@@ -472,13 +470,12 @@ The client supports configuration via:
 
 1. **Command Line Arguments** (Testing):
    ```bash
-   dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
+   dotnet run <username> <password> [api_url] [purchase_time] [max_investment]
    ```
 
 2. **Environment Variables** (Production):
    - `USERNAME`: Login username (required)
    - `PASSWORD`: Login password (required)
-   - `PWD`: Transaction password for creating arbitrage (required)
    - `PURCHASE_TIME`: Time for arbitrage orders (default: 14:15)
    - `API_URL`: Server API URL (default: http://localhost:5000)
    - `MAX_INVESTMENT`: Max investment per stock holder per fund in yuan (default: 1000)
@@ -563,7 +560,7 @@ curl -X POST http://localhost:5290/api/data/fetch
 **Test Client:**
 ```bash
 cd Client
-dotnet run <username> <password> http://localhost:5290 <pwd> 14:15
+dotnet run -- <username> <password> http://localhost:5290 14:15
 ```
 
 ## Notes

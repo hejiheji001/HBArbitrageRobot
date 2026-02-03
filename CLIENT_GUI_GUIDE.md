@@ -241,7 +241,7 @@ Run in console mode for automated/scheduled deployments:
 ```bash
 cd Client
 # With arguments
-dotnet run -- testuser testpass http://localhost:5000 testpwd 14:15 1000
+dotnet run -- testuser testpass http://localhost:5000 14:15 1000
 
 # With environment variables
 export USERNAME=testuser
