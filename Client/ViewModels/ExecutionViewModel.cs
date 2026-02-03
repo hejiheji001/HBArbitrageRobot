@@ -152,25 +152,25 @@ public class ExecutionViewModel : ViewModelBase
         // Check if we're already on UI thread
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
-            LogMessages.Add(timestampedMessage);
-            // Keep only last 1000 messages
-            while (LogMessages.Count > 1000)
-            {
-                LogMessages.RemoveAt(0);
-            }
+            AddLogMessageToCollection(timestampedMessage);
         }
         else
         {
             // Run on UI thread if not already there
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                LogMessages.Add(timestampedMessage);
-                // Keep only last 1000 messages
-                while (LogMessages.Count > 1000)
-                {
-                    LogMessages.RemoveAt(0);
-                }
+                AddLogMessageToCollection(timestampedMessage);
             });
+        }
+    }
+
+    private void AddLogMessageToCollection(string timestampedMessage)
+    {
+        LogMessages.Add(timestampedMessage);
+        // Keep only last 1000 messages
+        while (LogMessages.Count > 1000)
+        {
+            LogMessages.RemoveAt(0);
         }
     }
 }

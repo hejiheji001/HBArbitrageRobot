@@ -27,11 +27,13 @@ public class ResultsViewModel : ViewModelBase
 
     public void RefreshResults()
     {
-        // Ensure UI updates happen on UI thread
+        // Fetch data on background thread to avoid blocking UI
+        var results = _credentialStorage.GetExecutionResults(limit: 200);
+        
+        // Update UI collection on UI thread
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             Results.Clear();
-            var results = _credentialStorage.GetExecutionResults(limit: 200);
             foreach (var result in results)
             {
                 Results.Add(result);
