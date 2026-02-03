@@ -247,7 +247,6 @@ The Client requires:
    ```bash
    export USERNAME="your_username"
    export PASSWORD="your_password"
-   export PWD="your_transaction_password"
    export PURCHASE_TIME="14:15"
    export API_URL="http://localhost:5290"
    dotnet run
@@ -260,7 +259,6 @@ The Client requires:
    cat > .env << EOF
    USERNAME=your_username
    PASSWORD=your_password
-   PWD=your_transaction_password
    PURCHASE_TIME=14:15
    EOF
    ```
