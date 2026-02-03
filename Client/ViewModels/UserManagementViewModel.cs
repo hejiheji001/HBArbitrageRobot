@@ -84,12 +84,16 @@ public class UserManagementViewModel : ViewModelBase
 
     private void RefreshUsers()
     {
-        Users.Clear();
-        var users = _credentialStorage.GetAllUsers();
-        foreach (var user in users)
+        // Ensure UI updates happen on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            Users.Add(user);
-        }
+            Users.Clear();
+            var users = _credentialStorage.GetAllUsers();
+            foreach (var user in users)
+            {
+                Users.Add(user);
+            }
+        });
     }
 
     private void AddUser()

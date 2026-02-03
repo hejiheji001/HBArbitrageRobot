@@ -51,7 +51,11 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            CurrentView = UserManagementViewModel;
+            // Ensure UI updates happen on UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                CurrentView = UserManagementViewModel;
+            });
         }
         catch (Exception ex)
         {
@@ -63,7 +67,11 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            CurrentView = ExecutionViewModel;
+            // Ensure UI updates happen on UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                CurrentView = ExecutionViewModel;
+            });
         }
         catch (Exception ex)
         {
@@ -76,7 +84,11 @@ public class MainWindowViewModel : ViewModelBase
         try
         {
             ResultsViewModel.RefreshResults();
-            CurrentView = ResultsViewModel;
+            // Ensure UI updates happen on UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                CurrentView = ResultsViewModel;
+            });
         }
         catch (Exception ex)
         {
@@ -88,7 +100,11 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            CurrentView = SettingsViewModel;
+            // Ensure UI updates happen on UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                CurrentView = SettingsViewModel;
+            });
         }
         catch (Exception ex)
         {

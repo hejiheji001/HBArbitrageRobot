@@ -27,11 +27,15 @@ public class ResultsViewModel : ViewModelBase
 
     public void RefreshResults()
     {
-        Results.Clear();
-        var results = _credentialStorage.GetExecutionResults(limit: 200);
-        foreach (var result in results)
+        // Ensure UI updates happen on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            Results.Add(result);
-        }
+            Results.Clear();
+            var results = _credentialStorage.GetExecutionResults(limit: 200);
+            foreach (var result in results)
+            {
+                Results.Add(result);
+            }
+        });
     }
 }
