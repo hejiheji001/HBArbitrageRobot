@@ -84,12 +84,18 @@ public class UserManagementViewModel : ViewModelBase
 
     private void RefreshUsers()
     {
-        Users.Clear();
+        // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var users = _credentialStorage.GetAllUsers();
-        foreach (var user in users)
+        
+        // Update UI collection on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            Users.Add(user);
-        }
+            Users.Clear();
+            foreach (var user in users)
+            {
+                Users.Add(user);
+            }
+        });
     }
 
     private void AddUser()

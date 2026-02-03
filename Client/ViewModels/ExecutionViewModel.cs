@@ -125,29 +125,46 @@ public class ExecutionViewModel : ViewModelBase
 
     private void OnProgressUpdated(object? sender, ExecutionProgressEventArgs e)
     {
-        AddLog(e.Message);
-        StatusMessage = e.Message;
+        // Run on UI thread to avoid cross-thread access violations
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            AddLog(e.Message);
+            StatusMessage = e.Message;
+        });
     }
 
     private void OnUserExecutionCompleted(object? sender, ExecutionResult e)
     {
         var status = e.Success ? "✅" : "❌";
-        AddLog($"{status} {e.Username}: {(e.Success ? "Success" : e.ErrorMessage)}");
+        var message = $"{status} {e.Username}: {(e.Success ? "Success" : e.ErrorMessage)}";
+        
+        // Run on UI thread to avoid cross-thread access violations
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            AddLog(message);
+        });
     }
 
     private void AddLog(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        AddLogMessageToCollection(timestampedMessage);
+    }
+
+    /// <summary>
+    /// Adds a timestamped message to the log collection.
+    /// MUST be called from the UI thread.
+    /// </summary>
+    private void AddLogMessageToCollection(string timestampedMessage)
+    {
+        // Verify we're on the UI thread - throws if not
+        Avalonia.Threading.Dispatcher.UIThread.VerifyAccess();
         
-        // Run on UI thread
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        LogMessages.Add(timestampedMessage);
+        // Keep only last 1000 messages
+        while (LogMessages.Count > 1000)
         {
-            LogMessages.Add(timestampedMessage);
-            // Keep only last 1000 messages
-            while (LogMessages.Count > 1000)
-            {
-                LogMessages.RemoveAt(0);
-            }
-        });
+            LogMessages.RemoveAt(0);
+        }
     }
 }

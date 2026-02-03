@@ -27,11 +27,17 @@ public class ResultsViewModel : ViewModelBase
 
     public void RefreshResults()
     {
-        Results.Clear();
+        // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var results = _credentialStorage.GetExecutionResults(limit: 200);
-        foreach (var result in results)
+        
+        // Update UI collection on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            Results.Add(result);
-        }
+            Results.Clear();
+            foreach (var result in results)
+            {
+                Results.Add(result);
+            }
+        });
     }
 }
