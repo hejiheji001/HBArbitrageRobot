@@ -83,7 +83,9 @@ public class ExecutionViewModel : ViewModelBase
         if (IsExecuting) return;
 
         IsExecuting = true;
-        LogMessages.Clear();
+        
+        // Ensure UI updates happen on UI thread
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LogMessages.Clear());
         AddLog("Starting execution...");
 
         try
@@ -148,7 +150,18 @@ public class ExecutionViewModel : ViewModelBase
     private void AddLog(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
-        AddLogMessageToCollection(timestampedMessage);
+        
+        // Ensure we're on the UI thread before modifying the collection
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            // Already on UI thread, add directly
+            AddLogMessageToCollection(timestampedMessage);
+        }
+        else
+        {
+            // Not on UI thread, dispatch to UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => AddLogMessageToCollection(timestampedMessage));
+        }
     }
 
     /// <summary>
