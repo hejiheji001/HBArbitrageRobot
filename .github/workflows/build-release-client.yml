@@ -1,0 +1,215 @@
+name: Build and Release Multi-Platform Client
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: './Client/Client.csproj'
+
+jobs:
+  build-windows:
+    name: Build Windows Client
+    runs-on: windows-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: Build Windows Client
+        run: dotnet publish ${{ env.PROJECT_PATH }} -f net10.0 -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
+
+      - name: Create Windows ZIP archive
+        run: |
+          cd ./publish/win-x64
+          Compress-Archive -Path * -DestinationPath ../../HBArbitrageRobot-Client-Windows-x64.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-client
+          path: ./HBArbitrageRobot-Client-Windows-x64.zip
+
+  build-macos:
+    name: Build macOS Client
+    runs-on: macos-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: Build macOS Client (x64)
+        run: dotnet publish ${{ env.PROJECT_PATH }} -f net10.0 -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
+
+      - name: Build macOS Client (ARM64)
+        run: dotnet publish ${{ env.PROJECT_PATH }} -f net10.0 -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
+
+      - name: Create macOS ZIP archives
+        run: |
+          cd ./publish/osx-x64
+          zip -r ../../HBArbitrageRobot-Client-macOS-x64.zip *
+          cd ../osx-arm64
+          zip -r ../../HBArbitrageRobot-Client-macOS-ARM64.zip *
+
+      - name: Upload macOS x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-client-x64
+          path: ./HBArbitrageRobot-Client-macOS-x64.zip
+
+      - name: Upload macOS ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-client-arm64
+          path: ./HBArbitrageRobot-Client-macOS-ARM64.zip
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Install .NET Android workload
+        run: dotnet workload install android
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }} /p:BuildForAndroid=true
+
+      - name: Build Android APK
+        run: dotnet publish ${{ env.PROJECT_PATH }} -f net10.0-android -c Release /p:BuildForAndroid=true -o ./publish/android
+
+      - name: Find and rename APK
+        run: |
+          APK_FILE=$(find ./publish/android -name "*.apk" | head -n 1)
+          if [ -n "$APK_FILE" ]; then
+            cp "$APK_FILE" ./HBArbitrageRobot-Client-Android.apk
+            echo "APK found and copied: $APK_FILE"
+          else
+            echo "No APK file found!"
+            ls -R ./publish/android
+            exit 1
+          fi
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-client
+          path: ./HBArbitrageRobot-Client-Android.apk
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-windows, build-macos, build-android]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./artifacts/windows-client/HBArbitrageRobot-Client-Windows-x64.zip
+            ./artifacts/macos-client-x64/HBArbitrageRobot-Client-macOS-x64.zip
+            ./artifacts/macos-client-arm64/HBArbitrageRobot-Client-macOS-ARM64.zip
+            ./artifacts/android-client/HBArbitrageRobot-Client-Android.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-latest:
+    name: Publish Latest Builds
+    needs: [build-windows, build-macos, build-android]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Update or Create Latest Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Latest Development Build
+          files: |
+            ./artifacts/windows-client/HBArbitrageRobot-Client-Windows-x64.zip
+            ./artifacts/macos-client-x64/HBArbitrageRobot-Client-macOS-x64.zip
+            ./artifacts/macos-client-arm64/HBArbitrageRobot-Client-macOS-ARM64.zip
+            ./artifacts/android-client/HBArbitrageRobot-Client-Android.apk
+          draft: false
+          prerelease: true
+          body: |
+            **Latest development build from main branch**
+
+            This is an automated build from the latest commit on the main branch.
+
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+
+            Download the appropriate build for your platform:
+            - **Windows:** HBArbitrageRobot-Client-Windows-x64.zip
+            - **macOS (Intel):** HBArbitrageRobot-Client-macOS-x64.zip
+            - **macOS (Apple Silicon):** HBArbitrageRobot-Client-macOS-ARM64.zip
+            - **Android:** HBArbitrageRobot-Client-Android.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
