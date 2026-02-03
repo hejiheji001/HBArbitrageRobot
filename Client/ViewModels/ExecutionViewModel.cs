@@ -84,8 +84,8 @@ public class ExecutionViewModel : ViewModelBase
 
         IsExecuting = true;
         
-        // Ensure UI updates happen on UI thread
-        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LogMessages.Clear());
+        // Clear on UI thread - AddLog() handles its own thread dispatching
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => LogMessages.Clear());
         AddLog("Starting execution...");
 
         try
@@ -104,8 +104,8 @@ public class ExecutionViewModel : ViewModelBase
 
             var successCount = results.Count(r => r.Success);
             
-            // Ensure UI property updates happen on UI thread (fire-and-forget)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            // Update status message on UI thread, await to ensure order with subsequent logs
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
             });
@@ -117,8 +117,8 @@ public class ExecutionViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            // Ensure UI property updates happen on UI thread (fire-and-forget)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            // Update status message on UI thread, await to ensure order with subsequent logs
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 StatusMessage = $"Error: {ex.Message}";
             });
@@ -127,8 +127,8 @@ public class ExecutionViewModel : ViewModelBase
         }
         finally
         {
-            // Ensure UI property updates happen on UI thread (fire-and-forget)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            // MUST await to prevent race condition if user clicks button again immediately
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 IsExecuting = false;
             });
