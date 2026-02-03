@@ -27,12 +27,16 @@
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <Button Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).ToggleEnabledCommand}" 
                                                     CommandParameter="{Binding}" 
-                                                    Width="40" Height="30"
-                                                    ToolTip.Tip="Toggle Enabled/Disabled">
-                                                <TextBlock Text="{Binding IsEnabled, Converter={x:Static converters:ObjectConverters.EnabledToIcon}}"/>
+                                                    Width="40" Height="30">
+                                                <Button.Content>
+                                                    <TextBlock Text="{Binding IsEnabled, Converter={x:Static converters:ObjectConverters.EnabledToIcon}}"/>
+                                                </Button.Content>
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{Binding IsEnabled, Converter={x:Static converters:ObjectConverters.EnabledToTooltip}}"/>
+                                                </ToolTip.Tip>
                                             </Button>
-                                            <Button Content="✏️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).EditUserCommand}" CommandParameter="{Binding}" Width="35" Height="30"/>
-                                            <Button Content="🗑️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).DeleteUserCommand}" CommandParameter="{Binding}" Width="35" Height="30"/>
+                                            <Button Content="✏️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).EditUserCommand}" CommandParameter="{Binding}" Width="35" Height="30" ToolTip.Tip="Edit User"/>
+                                            <Button Content="🗑️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).DeleteUserCommand}" CommandParameter="{Binding}" Width="35" Height="30" ToolTip.Tip="Delete User"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
