@@ -35,7 +35,8 @@ This application supports multiple deployment strategies:
    - Best for: 24/7 operation, full control, existing infrastructure
 
 2. **AWS Serverless (Cloud)**: Deploy to AWS Lambda with scheduled execution
-   - See [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) for detailed guide
+   - Quick Start: [QUICKSTART_AWS.md](QUICKSTART_AWS.md) - 5-minute deployment guide
+   - Detailed Guide: [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) - Complete documentation
    - Best for: Cost-effective serverless operation during trading hours only
    - Runs at 14:00 Shanghai time (Mon-Fri)
    - Cost: ~$0.80/month
