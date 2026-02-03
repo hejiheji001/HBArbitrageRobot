@@ -55,7 +55,7 @@ public class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error showing user management: {ex.Message}");
+            Console.WriteLine($"Error showing user management: {ex}");
         }
     }
     
@@ -67,7 +67,7 @@ public class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error showing execution: {ex.Message}");
+            Console.WriteLine($"Error showing execution: {ex}");
         }
     }
     
@@ -80,7 +80,7 @@ public class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error showing results: {ex.Message}");
+            Console.WriteLine($"Error showing results: {ex}");
         }
     }
     
@@ -92,7 +92,7 @@ public class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error showing settings: {ex.Message}");
+            Console.WriteLine($"Error showing settings: {ex}");
         }
     }
 }
