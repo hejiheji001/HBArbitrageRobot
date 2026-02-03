@@ -39,6 +39,9 @@ internal class Program
             Console.WriteLine("Starting GUI mode...");
         }
         
+        // Load and display existing users before starting GUI
+        DisplayExistingUsers();
+        
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         return 0;
     }
@@ -57,24 +60,80 @@ internal class Program
         // Initialize services
         var config = new ConfigurationService();
         config.LoadConfiguration(args);
+        var credentialStorage = new CredentialStorageService();
 
-        // Validate required configuration
-        if (string.IsNullOrEmpty(config.Username) || string.IsNullOrEmpty(config.Password))
+        // Check if username/password were provided via args or env
+        bool credentialsProvided = !string.IsNullOrEmpty(config.Username) && !string.IsNullOrEmpty(config.Password);
+
+        if (credentialsProvided)
         {
-            Console.WriteLine("Error: Username and Password are required.");
-            Console.WriteLine("\nUsage:");
-            Console.WriteLine("  dotnet run <username> <password> [api_url] [purchase_time] [max_investment] [headless]");
-            Console.WriteLine("  dotnet run --cli  # Uses environment variables");
-            Console.WriteLine("\nOr set environment variables:");
-            Console.WriteLine("  USERNAME=your_username");
-            Console.WriteLine("  PASSWORD=your_password");
-            Console.WriteLine("  PURCHASE_TIME=14:15");
-            Console.WriteLine("  API_URL=http://localhost:5000");
-            Console.WriteLine("  MAX_INVESTMENT=1000");
-            Console.WriteLine("  HEADLESS=true");
-            return 1;
+            // Credentials provided: save to SQLite for future use
+            Console.WriteLine($"✓ Credentials provided for user: {config.Username}");
+            
+            // Check if user already exists
+            var existingUsers = credentialStorage.GetAllUsers();
+            var existingUser = existingUsers.FirstOrDefault(u => u.Username.Equals(config.Username, StringComparison.OrdinalIgnoreCase));
+            
+            if (existingUser != null)
+            {
+                // Update existing user
+                existingUser.DecryptedPassword = config.Password;
+                existingUser.IsEnabled = true;
+                credentialStorage.SaveUser(existingUser);
+                Console.WriteLine($"✓ Updated existing user in database: {config.Username}");
+            }
+            else
+            {
+                // Create new user
+                var newUser = new Models.UserCredential
+                {
+                    Username = config.Username,
+                    DecryptedPassword = config.Password,
+                    DisplayName = config.Username,
+                    IsEnabled = true,
+                    CreatedAt = DateTime.Now
+                };
+                credentialStorage.SaveUser(newUser);
+                Console.WriteLine($"✓ Saved new user to database: {config.Username}");
+            }
+        }
+        else
+        {
+            // No credentials provided: load from SQLite
+            Console.WriteLine("No credentials provided, loading from database...");
+            var users = credentialStorage.GetAllUsers().Where(u => u.IsEnabled).ToList();
+            
+            if (users.Count == 0)
+            {
+                Console.WriteLine("Error: No enabled users found in database and no credentials provided.");
+                Console.WriteLine("\nUsage:");
+                Console.WriteLine("  dotnet run <username> <password> [api_url] [purchase_time] [max_investment]");
+                Console.WriteLine("  dotnet run --cli  # Uses environment variables or loads from database");
+                Console.WriteLine("\nOr set environment variables:");
+                Console.WriteLine("  USERNAME=your_username");
+                Console.WriteLine("  PASSWORD=your_password");
+                Console.WriteLine("  PURCHASE_TIME=14:15");
+                Console.WriteLine("  API_URL=http://localhost:5000");
+                Console.WriteLine("  MAX_INVESTMENT=1000");
+                Console.WriteLine("  HEADLESS=true");
+                return 1;
+            }
+
+            Console.WriteLine($"\n✓ Loaded {users.Count} enabled user(s) from database:");
+            foreach (var user in users)
+            {
+                var lastRun = user.LastExecutedAt.HasValue 
+                    ? user.LastExecutedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                    : "Never";
+                Console.WriteLine($"  - {user.Username} (Display: {user.DisplayName ?? "N/A"}, Last run: {lastRun})");
+            }
+            Console.WriteLine();
+
+            // Execute for all enabled users using MultiUserExecutionService
+            return await RunMultiUserCliMode(credentialStorage, config);
         }
 
+        // Single user mode - original behavior
         var apiClient = new ApiClientService();
         var browserService = new BrowserService();
         var authService = new AuthenticationService(config.Username, config.Password);
@@ -122,6 +181,75 @@ internal class Program
 
             // Enter standby mode until next execution time
             await schedulingService.EnterStandbyModeAsync();
+        }
+    }
+
+    private static async Task<int> RunMultiUserCliMode(CredentialStorageService credentialStorage, ConfigurationService config)
+    {
+        var schedulingService = new SchedulingService();
+        
+        // Run continuous multi-user arbitrage workflow
+        while (true)
+        {
+            try
+            {
+                Console.WriteLine("\n" + new string('=', 80));
+                Console.WriteLine($"Starting multi-user arbitrage cycle at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                Console.WriteLine(new string('=', 80));
+
+                // Create execution service for all enabled users
+                var executionService = new MultiUserExecutionService(
+                    credentialStorage,
+                    config.ApiUrl,
+                    config.PurchaseTime,
+                    config.MaxInvestmentPerHolder
+                );
+
+                // Execute for all enabled users
+                var results = await executionService.ExecuteForAllUsersAsync();
+
+                var successCount = results.Count(r => r.Success);
+                Console.WriteLine($"\n✓ Multi-user execution completed: {successCount}/{results.Count} successful");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n✗ Error during multi-user arbitrage workflow: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+
+            // Enter standby mode until next execution time
+            await schedulingService.EnterStandbyModeAsync();
+        }
+    }
+
+    private static void DisplayExistingUsers()
+    {
+        try
+        {
+            var credentialStorage = new CredentialStorageService();
+            var users = credentialStorage.GetAllUsers();
+            
+            if (users.Count > 0)
+            {
+                Console.WriteLine("\n=== Existing Users ===");
+                foreach (var user in users)
+                {
+                    var status = user.IsEnabled ? "✓ Enabled" : "✗ Disabled";
+                    var lastRun = user.LastExecutedAt.HasValue 
+                        ? user.LastExecutedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                        : "Never";
+                    Console.WriteLine($"  {status} - {user.Username} (Display: {user.DisplayName ?? "N/A"}, Last run: {lastRun})");
+                }
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("\nNo users configured yet. Use the User Management tab to add users.\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not load existing users: {ex.Message}");
         }
     }
 

@@ -509,7 +509,6 @@ dotnet build
 # Set environment variables
 export USERNAME="your_username"
 export PASSWORD="your_password"
-export PWD="your_transaction_password"
 export API_URL="https://your-lambda-url.lambda-url.us-east-1.on.aws"
 export HEADLESS="true"
 
