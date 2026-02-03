@@ -53,7 +53,7 @@ The requirements were to:
 - Other platforms: XOR encryption with machine-specific entropy
 
 **Features:**
-- Multiple user accounts with username/password/transaction password
+- Multiple user accounts with username/password
 - Display names for easy identification
 - Enable/disable individual users
 - Creation and last execution timestamps
@@ -63,7 +63,6 @@ The requirements were to:
 ```csharp
 - Username: Login credential
 - EncryptedPassword: Encrypted login password
-- EncryptedTransactionPassword: Encrypted transaction password
 - DisplayName: User-friendly name
 - IsEnabled: Enable/disable flag
 - CreatedAt, LastExecutedAt: Timestamps

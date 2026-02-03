@@ -21,13 +21,13 @@ public class ConfigurationService
         Username = GetConfig(args, "USERNAME", 0);
         Password = GetConfig(args, "PASSWORD", 1);
         ApiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
-        PurchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
+        PurchaseTime = GetConfig(args, "PURCHASE_TIME", 3, "14:15");
         Headless = bool.Parse(GetConfig(args, "HEADLESS", 5, "true"));
 
         // Parse max investment with error handling
         try
         {
-            var maxInvestmentConfig = GetConfig(args, "MAX_INVESTMENT", 5, "1000");
+            var maxInvestmentConfig = GetConfig(args, "MAX_INVESTMENT", 4, "1000");
             MaxInvestmentPerHolder = decimal.Parse(maxInvestmentConfig);
         }
         catch (Exception ex)

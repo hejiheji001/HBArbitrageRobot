@@ -1,7 +1,6 @@
 using Avalonia;
-using System;
-using System.Threading.Tasks;
 using Client.Services;
+using Avalonia.ReactiveUI;
 
 namespace Client;
 
@@ -64,15 +63,15 @@ internal class Program
         {
             Console.WriteLine("Error: Username and Password are required.");
             Console.WriteLine("\nUsage:");
-            Console.WriteLine("  dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]");
+            Console.WriteLine("  dotnet run <username> <password> [api_url] [purchase_time] [max_investment] [headless]");
             Console.WriteLine("  dotnet run --cli  # Uses environment variables");
             Console.WriteLine("\nOr set environment variables:");
             Console.WriteLine("  USERNAME=your_username");
             Console.WriteLine("  PASSWORD=your_password");
-            Console.WriteLine("  PWD=your_transaction_password");
             Console.WriteLine("  PURCHASE_TIME=14:15");
             Console.WriteLine("  API_URL=http://localhost:5000");
             Console.WriteLine("  MAX_INVESTMENT=1000");
+            Console.WriteLine("  HEADLESS=true");
             return 1;
         }
 
@@ -131,5 +130,6 @@ internal class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .UseReactiveUI()
             .LogToTrace();
 }

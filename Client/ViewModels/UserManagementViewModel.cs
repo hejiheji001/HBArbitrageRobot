@@ -1,6 +1,5 @@
 using ReactiveUI;
 using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Windows.Input;
 using Client.Models;
 using Client.Services;
@@ -13,7 +12,6 @@ public class UserManagementViewModel : ViewModelBase
     private UserCredential? _selectedUser;
     private string _username = string.Empty;
     private string _password = string.Empty;
-    private string _transactionPassword = string.Empty;
     private string _displayName = string.Empty;
     private bool _isEnabled = true;
     private bool _isEditMode;
@@ -50,12 +48,6 @@ public class UserManagementViewModel : ViewModelBase
     {
         get => _password;
         set => this.RaiseAndSetIfChanged(ref _password, value);
-    }
-
-    public string TransactionPassword
-    {
-        get => _transactionPassword;
-        set => this.RaiseAndSetIfChanged(ref _transactionPassword, value);
     }
 
     public string DisplayName
@@ -111,7 +103,6 @@ public class UserManagementViewModel : ViewModelBase
         SelectedUser = user;
         Username = user.Username;
         Password = user.DecryptedPassword ?? "";
-        TransactionPassword = user.DecryptedTransactionPassword ?? "";
         DisplayName = user.DisplayName ?? "";
         IsEnabled = user.IsEnabled;
         IsEditMode = true;
@@ -136,7 +127,6 @@ public class UserManagementViewModel : ViewModelBase
         var user = SelectedUser ?? new UserCredential();
         user.Username = Username;
         user.DecryptedPassword = Password;
-        user.DecryptedTransactionPassword = TransactionPassword;
         user.DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? Username : DisplayName;
         user.IsEnabled = IsEnabled;
 
@@ -156,7 +146,6 @@ public class UserManagementViewModel : ViewModelBase
         SelectedUser = null;
         Username = string.Empty;
         Password = string.Empty;
-        TransactionPassword = string.Empty;
         DisplayName = string.Empty;
         IsEnabled = true;
     }

@@ -1,8 +1,5 @@
 using ReactiveUI;
-using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Windows.Input;
-using Client.Models;
 using Client.Services;
 
 namespace Client.ViewModels;
@@ -10,16 +7,14 @@ namespace Client.ViewModels;
 public class MainWindowViewModel : ViewModelBase
 {
     private readonly CredentialStorageService _credentialStorage;
-    private readonly ApiClientService _apiClient;
     private ViewModelBase _currentView;
     
     public MainWindowViewModel()
     {
         _credentialStorage = new CredentialStorageService();
-        _apiClient = new ApiClientService();
         
         UserManagementViewModel = new UserManagementViewModel(_credentialStorage);
-        ExecutionViewModel = new ExecutionViewModel(_credentialStorage, _apiClient);
+        ExecutionViewModel = new ExecutionViewModel(_credentialStorage);
         ResultsViewModel = new ResultsViewModel(_credentialStorage);
         SettingsViewModel = new SettingsViewModel();
         

@@ -34,7 +34,6 @@ Profile using command-line arguments instead of environment variables.
 3. **Update credentials** in `launchSettings.json`:
    - Replace `your_username_here` with your touker.com username
    - Replace `your_password_here` with your touker.com password
-   - Replace `your_transaction_password_here` with your transaction password
 4. **Press F5** or click Start to run with the selected profile
 
 ## Security Note
@@ -55,7 +54,6 @@ Each profile supports these environment variables:
 
 - **USERNAME**: Touker.com login username (required)
 - **PASSWORD**: Touker.com login password (required)
-- **PWD**: Transaction password for arbitrage orders (required)
 - **API_URL**: Server API endpoint (default: http://localhost:5000)
 - **PURCHASE_TIME**: Time for arbitrage orders in HH:mm format (default: 14:15)
 - **MAX_INVESTMENT**: Max investment per stock holder per fund in yuan (default: 1000)
@@ -71,7 +69,6 @@ To customize for your needs, edit the environment variables in the profile:
   "environmentVariables": {
     "USERNAME": "myusername",
     "PASSWORD": "mypassword",
-    "PWD": "mytransactionpwd",
     "API_URL": "http://localhost:5290",
     "PURCHASE_TIME": "14:30",
     "MAX_INVESTMENT": "2000",

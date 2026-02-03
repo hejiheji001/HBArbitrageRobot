@@ -28,14 +28,6 @@ public class UserCredential
 
     public DateTime? LastExecutedAt { get; set; }
 
-    /// <summary>
-    /// Transaction password for creating arbitrage orders
-    /// </summary>
-    public string? EncryptedTransactionPassword { get; set; }
-
     [Ignore]
     public string? DecryptedPassword { get; set; }
-
-    [Ignore]
-    public string? DecryptedTransactionPassword { get; set; }
 }

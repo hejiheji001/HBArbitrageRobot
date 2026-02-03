@@ -48,9 +48,6 @@
                     <TextBlock Text="Password:"/>
                     <TextBox Text="{Binding Password}" PasswordChar="*"/>
                     
-                    <TextBlock Text="Transaction Password:"/>
-                    <TextBox Text="{Binding TransactionPassword}" PasswordChar="*"/>
-                    
                     <TextBlock Text="Display Name (optional):"/>
                     <TextBox Text="{Binding DisplayName}"/>
                     

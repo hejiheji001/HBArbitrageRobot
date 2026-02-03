@@ -1,6 +1,5 @@
 using ReactiveUI;
 using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Windows.Input;
 using Client.Models;
 using Client.Services;
@@ -10,7 +9,6 @@ namespace Client.ViewModels;
 public class ExecutionViewModel : ViewModelBase
 {
     private readonly CredentialStorageService _credentialStorage;
-    private readonly ApiClientService _apiClient;
     private MultiUserExecutionService? _executionService;
     
     private bool _isExecuting;
@@ -19,10 +17,9 @@ public class ExecutionViewModel : ViewModelBase
     private decimal _maxInvestment;
     private string _statusMessage = "Ready to execute";
 
-    public ExecutionViewModel(CredentialStorageService credentialStorage, ApiClientService apiClient)
+    public ExecutionViewModel(CredentialStorageService credentialStorage)
     {
         _credentialStorage = credentialStorage;
-        _apiClient = apiClient;
         
         // Read configuration from environment variables (set by launchSettings.json)
         _apiUrl = Environment.GetEnvironmentVariable("API_URL") ?? "http://localhost:5000";
@@ -99,7 +96,6 @@ public class ExecutionViewModel : ViewModelBase
         try
         {
             _executionService = new MultiUserExecutionService(
-                _apiClient,
                 _credentialStorage,
                 ApiUrl,
                 PurchaseTime,

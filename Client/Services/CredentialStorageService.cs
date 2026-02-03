@@ -1,6 +1,5 @@
 using Client.Models;
 using SQLite;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace Client.Services;
@@ -116,10 +115,6 @@ public class CredentialStorageService
         foreach (var user in users)
         {
             user.DecryptedPassword = Decrypt(user.EncryptedPassword);
-            if (!string.IsNullOrEmpty(user.EncryptedTransactionPassword))
-            {
-                user.DecryptedTransactionPassword = Decrypt(user.EncryptedTransactionPassword);
-            }
         }
         
         return users;
@@ -133,10 +128,6 @@ public class CredentialStorageService
         if (user != null)
         {
             user.DecryptedPassword = Decrypt(user.EncryptedPassword);
-            if (!string.IsNullOrEmpty(user.EncryptedTransactionPassword))
-            {
-                user.DecryptedTransactionPassword = Decrypt(user.EncryptedTransactionPassword);
-            }
         }
         
         return user;
@@ -150,11 +141,6 @@ public class CredentialStorageService
         if (!string.IsNullOrEmpty(user.DecryptedPassword))
         {
             user.EncryptedPassword = Encrypt(user.DecryptedPassword);
-        }
-        
-        if (!string.IsNullOrEmpty(user.DecryptedTransactionPassword))
-        {
-            user.EncryptedTransactionPassword = Encrypt(user.DecryptedTransactionPassword);
         }
         
         if (user.Id == 0)

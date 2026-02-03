@@ -9,7 +9,6 @@ namespace Client.Services;
 /// Service for executing arbitrage for multiple users sequentially
 /// </summary>
 public class MultiUserExecutionService(
-    ApiClientService apiClient,
     CredentialStorageService credentialStorage,
     string apiUrl,
     string purchaseTime,
@@ -179,7 +178,7 @@ public class MultiUserExecutionService(
                         StockHolderList = stockHolderList,
                         PurchaseTime = purchaseTime,
                         List = lofPayload,
-                        Password = user.DecryptedTransactionPassword ?? user.DecryptedPassword ?? ""
+                        Password = user.DecryptedPassword ?? ""
                     };
 
                     var success = await arbitrageService.CreateArbitrageAsync(page, request);
