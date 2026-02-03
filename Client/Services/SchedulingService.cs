@@ -39,7 +39,7 @@ public class SchedulingService
         Console.WriteLine($"\n⏰ Waking up at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
     }
 
-    private TimeZoneInfo GetShanghaiTimeZone()
+    private static TimeZoneInfo GetShanghaiTimeZone()
     {
         try
         {
@@ -66,7 +66,7 @@ public class SchedulingService
         }
     }
 
-    private TimeSpan CalculateSafeWaitDuration(TimeSpan requestedDuration)
+    private static TimeSpan CalculateSafeWaitDuration(TimeSpan requestedDuration)
     {
         // Validate wait duration to prevent Task.Delay overflow
         // Maximum safe duration is about 24.8 days (int.MaxValue milliseconds)

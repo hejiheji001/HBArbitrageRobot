@@ -19,7 +19,7 @@ public class ApiClientService
     /// </summary>
     /// <param name="baseUrl">The base URL of the server API</param>
     /// <returns>A tuple containing the LOF data (if any) and a flag indicating if the client should wait</returns>
-    public async Task<(List<LofArbitrageData>, bool shouldWait)> FetchLofDataFromApiAsync(string baseUrl)
+    public static async Task<(List<LofArbitrageData>, bool shouldWait)> FetchLofDataFromApiAsync(string baseUrl)
     {
         try
         {

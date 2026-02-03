@@ -5,16 +5,8 @@ namespace Client.Services;
 /// <summary>
 /// Service for handling authentication to the trading platform
 /// </summary>
-public class AuthenticationService
+public class AuthenticationService(string username, string password)
 {
-    private readonly string _username;
-    private readonly string _password;
-
-    public AuthenticationService(string username, string password)
-    {
-        _username = username;
-        _password = password;
-    }
 
     /// <summary>
     /// Perform login to the trading platform
@@ -34,8 +26,8 @@ public class AuthenticationService
             var checkboxSelector = "div.check-input";
             var submitSelector = "button.hb-btn.hb-btn-primary:has-text('登录')";
 
-            await page.FillAsync(usernameSelector, _username);
-            await page.FillAsync(passwordSelector, _password);
+            await page.FillAsync(usernameSelector, username);
+            await page.FillAsync(passwordSelector, password);
 
             // Click the confirmation checkbox before submitting
             Console.WriteLine("Clicking confirmation checkbox...");

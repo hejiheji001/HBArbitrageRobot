@@ -8,37 +8,22 @@ namespace Client.Services;
 /// <summary>
 /// Service for executing arbitrage for multiple users sequentially
 /// </summary>
-public class MultiUserExecutionService
+public class MultiUserExecutionService(
+    ApiClientService apiClient,
+    CredentialStorageService credentialStorage,
+    string apiUrl,
+    string purchaseTime,
+    decimal maxInvestment)
 {
-    private readonly ApiClientService _apiClient;
-    private readonly CredentialStorageService _credentialStorage;
-    private readonly string _apiUrl;
-    private readonly string _purchaseTime;
-    private readonly decimal _maxInvestment;
-
     public event EventHandler<ExecutionProgressEventArgs>? ProgressUpdated;
     public event EventHandler<ExecutionResult>? UserExecutionCompleted;
-
-    public MultiUserExecutionService(
-        ApiClientService apiClient,
-        CredentialStorageService credentialStorage,
-        string apiUrl,
-        string purchaseTime,
-        decimal maxInvestment)
-    {
-        _apiClient = apiClient;
-        _credentialStorage = credentialStorage;
-        _apiUrl = apiUrl;
-        _purchaseTime = purchaseTime;
-        _maxInvestment = maxInvestment;
-    }
 
     /// <summary>
     /// Execute arbitrage for all enabled users sequentially
     /// </summary>
     public async Task<List<ExecutionResult>> ExecuteForAllUsersAsync()
     {
-        var users = _credentialStorage.GetAllUsers()
+        var users = credentialStorage.GetAllUsers()
             .Where(u => u.IsEnabled)
             .ToList();
 
@@ -75,7 +60,7 @@ public class MultiUserExecutionService
                 };
                 
                 results.Add(errorResult);
-                _credentialStorage.SaveExecutionResult(errorResult);
+                credentialStorage.SaveExecutionResult(errorResult);
                 UserExecutionCompleted?.Invoke(this, errorResult);
                 
                 ReportProgress($"Error processing user {user.Username}: {ex.Message}");
@@ -115,7 +100,7 @@ public class MultiUserExecutionService
         try
         {
             Log("Fetching LOF data from API...");
-            var (lofData, shouldWait) = await _apiClient.FetchLofDataFromApiAsync(_apiUrl);
+            var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl);
 
             if (shouldWait || lofData == null || lofData.Count == 0)
             {
@@ -123,7 +108,7 @@ public class MultiUserExecutionService
                 result.Success = true; // Not an error, just no data
                 result.LogMessages = logMessages.ToString();
                 result.DurationSeconds = sw.Elapsed.TotalSeconds;
-                _credentialStorage.SaveExecutionResult(result);
+                credentialStorage.SaveExecutionResult(result);
                 return result;
             }
 
@@ -156,7 +141,7 @@ public class MultiUserExecutionService
                     // Navigate to main page
                     Log("Navigating to arbitrage page...");
                     var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
-                    await browserService.NavigateWithRetryAsync(page, mainUrl);
+                    await BrowserService.NavigateWithRetryAsync(page, mainUrl);
                     await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
                     // Fetch stock holders
@@ -171,7 +156,7 @@ public class MultiUserExecutionService
                     }
 
                     // Calculate investments
-                    arbitrageService.CalculateInvestments(lofData, stockHolderList, _maxInvestment);
+                    ArbitrageService.CalculateInvestments(lofData, stockHolderList, maxInvestment);
                     var totalInvestment = lofData.Sum(item => item.Amount * stockHolderList.Count);
                     result.TotalInvestment = totalInvestment;
                     Log($"Total investment calculated: {totalInvestment:N2} yuan");
@@ -192,7 +177,7 @@ public class MultiUserExecutionService
                     var request = new CreateArbitrageRequest
                     {
                         StockHolderList = stockHolderList,
-                        PurchaseTime = _purchaseTime,
+                        PurchaseTime = purchaseTime,
                         List = lofPayload,
                         Password = user.DecryptedTransactionPassword ?? user.DecryptedPassword ?? ""
                     };
@@ -227,7 +212,7 @@ public class MultiUserExecutionService
         result.DurationSeconds = sw.Elapsed.TotalSeconds;
         result.LogMessages = logMessages.ToString();
         
-        _credentialStorage.SaveExecutionResult(result);
+        credentialStorage.SaveExecutionResult(result);
         
         return result;
     }

@@ -6,27 +6,13 @@ namespace Client.Services;
 /// <summary>
 /// Orchestrator service that coordinates the arbitrage workflow
 /// </summary>
-public class WorkflowOrchestrator
+public class WorkflowOrchestrator(
+    ConfigurationService config,
+    ApiClientService apiClient,
+    BrowserService browserService,
+    AuthenticationService authService,
+    ArbitrageService arbitrageService)
 {
-    private readonly ConfigurationService _config;
-    private readonly ApiClientService _apiClient;
-    private readonly BrowserService _browserService;
-    private readonly AuthenticationService _authService;
-    private readonly ArbitrageService _arbitrageService;
-
-    public WorkflowOrchestrator(
-        ConfigurationService config,
-        ApiClientService apiClient,
-        BrowserService browserService,
-        AuthenticationService authService,
-        ArbitrageService arbitrageService)
-    {
-        _config = config;
-        _apiClient = apiClient;
-        _browserService = browserService;
-        _authService = authService;
-        _arbitrageService = arbitrageService;
-    }
 
     /// <summary>
     /// Run the complete arbitrage workflow
@@ -38,7 +24,7 @@ public class WorkflowOrchestrator
         // Initialize browser and login
         // In CLI mode, we explicitly pass headless=true
         // In development/testing, we can pass headless=false to see the browser
-        var (playwright, browser) = await _browserService.InitializeBrowserAsync(_config.Headless);
+        var (playwright, browser) = await browserService.InitializeBrowserAsync(config.Headless);
         
         using (playwright)
         {
@@ -57,7 +43,7 @@ public class WorkflowOrchestrator
                 var stockHolderList = await FetchAndValidateStockHoldersAsync(page);
 
                 // Calculate investments
-                _arbitrageService.CalculateInvestments(lofData, stockHolderList, _config.MaxInvestmentPerHolder);
+                ArbitrageService.CalculateInvestments(lofData, stockHolderList, config.MaxInvestmentPerHolder);
 
                 // Create arbitrage orders
                 await CreateArbitrageOrdersAsync(page, lofData, stockHolderList);
@@ -76,13 +62,13 @@ public class WorkflowOrchestrator
         await page.GotoAsync(loginUrl);
         await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
         
-        await _authService.LogInAsync(page);
+        await authService.LogInAsync(page);
     }
 
     private async Task NavigateToMainPageAsync(IPage page)
     {
         var mainUrl = "https://m.touker.com/fd/lofrobot/sceneConstruction";
-        await _browserService.NavigateWithRetryAsync(page, mainUrl);
+        await BrowserService.NavigateWithRetryAsync(page, mainUrl);
         await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
         Console.WriteLine("Page URL: " + page.Url);
     }
@@ -90,7 +76,7 @@ public class WorkflowOrchestrator
     private async Task<List<string>> FetchAndValidateStockHoldersAsync(IPage page)
     {
         Console.WriteLine("\nFetching stock holder list...");
-        var stockHolderList = await _arbitrageService.FetchStockHolderListAsync(page);
+        var stockHolderList = await arbitrageService.FetchStockHolderListAsync(page);
 
         if (stockHolderList.Count == 0)
         {
@@ -122,17 +108,17 @@ public class WorkflowOrchestrator
         var request = new CreateArbitrageRequest
         {
             StockHolderList = stockHolderList,
-            PurchaseTime = _config.PurchaseTime,
+            PurchaseTime = config.PurchaseTime,
             List = lofPayload,
-            Password = _config.Password
+            Password = config.Password
         };
 
         Console.WriteLine($"\nCreating arbitrage with:");
         Console.WriteLine($"  - Stock Holders: {stockHolderList.Count}");
-        Console.WriteLine($"  - Purchase Time: {_config.PurchaseTime}");
+        Console.WriteLine($"  - Purchase Time: {config.PurchaseTime}");
         Console.WriteLine($"  - LOF Items: {lofData.Count}");
 
-        var success = await _arbitrageService.CreateArbitrageAsync(page, request);
+        var success = await arbitrageService.CreateArbitrageAsync(page, request);
 
         if (success)
         {

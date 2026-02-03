@@ -7,14 +7,8 @@ namespace Client.Services;
 /// <summary>
 /// Service for handling arbitrage operations on the trading platform
 /// </summary>
-public class ArbitrageService
+public class ArbitrageService(AuthenticationService authService)
 {
-    private readonly AuthenticationService _authService;
-
-    public ArbitrageService(AuthenticationService authService)
-    {
-        _authService = authService;
-    }
 
     /// <summary>
     /// Fetch stock holder list from the trading platform
@@ -30,7 +24,7 @@ public class ArbitrageService
 
             if (response.Contains("未登陆"))
             {
-                await _authService.LogInAsync(page);
+                await authService.LogInAsync(page);
                 response = await FetchDataAsync(page, url, HttpMethod.Get);
             }
 
@@ -93,7 +87,7 @@ public class ArbitrageService
     /// <summary>
     /// Calculate investment amounts based on LOF data and constraints
     /// </summary>
-    public decimal CalculateInvestments(List<LofArbitrageData> lofData, List<string> stockHolderList, decimal maxInvestmentPerHolder)
+    public static decimal CalculateInvestments(List<LofArbitrageData> lofData, List<string> stockHolderList, decimal maxInvestmentPerHolder)
     {
         decimal totalInvestment = 0;
 
@@ -125,7 +119,7 @@ public class ArbitrageService
         return totalInvestment;
     }
 
-    private async Task<string> FetchDataAsync(IPage page, string url, HttpMethod method, APIRequestContextOptions? payload = null)
+    private static async Task<string> FetchDataAsync(IPage page, string url, HttpMethod method, APIRequestContextOptions? payload = null)
     {
         var result = string.Empty;
         
@@ -214,7 +208,7 @@ public class ArbitrageService
         }
     }
 
-    private void PrintFinalInvestmentSummary(CreateArbitrageRequest request)
+    private static void PrintFinalInvestmentSummary(CreateArbitrageRequest request)
     {
         Console.WriteLine("\n=== Final Investment Summary After Splitting ===");
         decimal actualTotalInvestment = 0;

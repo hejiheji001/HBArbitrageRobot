@@ -24,7 +24,7 @@ public class BrowserService
     /// <summary>
     /// Navigate to a URL with retry logic to handle transient errors
     /// </summary>
-    public async Task NavigateWithRetryAsync(IPage page, string url, int maxRetries = 3, int retryDelayMs = 2000)
+    public static async Task NavigateWithRetryAsync(IPage page, string url, int maxRetries = 3, int retryDelayMs = 2000)
     {
         Console.WriteLine($"\nNavigating to: {url}");
         
@@ -87,7 +87,7 @@ public class BrowserService
         }
     }
 
-    private void ConfigurePlaywrightEnvironment()
+    private static void ConfigurePlaywrightEnvironment()
     {
         // Set Playwright to use running directory for browser installation if not already set
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
@@ -97,7 +97,7 @@ public class BrowserService
         }
     }
 
-    private bool DetermineHeadlessMode()
+    private static bool DetermineHeadlessMode()
     {
         var isDevelopment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development" ||
                             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
@@ -159,7 +159,7 @@ public class BrowserService
         return (playwright, browser);
     }
 
-    private async Task InstallPlaywrightBrowsersAsync()
+    private static async Task InstallPlaywrightBrowsersAsync()
     {
         Console.WriteLine("\nPlaywright browsers are not installed.");
         Console.Write("Would you like to install Playwright browsers now? (Y/N): ");

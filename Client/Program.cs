@@ -99,7 +99,7 @@ internal class Program
                 Console.WriteLine(new string('=', 80));
 
                 // Fetch LOF data from server
-                var (lofData, shouldWait) = await apiClient.FetchLofDataFromApiAsync(config.ApiUrl);
+                var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(config.ApiUrl);
 
                 if (shouldWait || lofData == null || lofData.Count == 0)
                 {
