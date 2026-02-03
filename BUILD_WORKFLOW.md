@@ -68,6 +68,8 @@ The workflow runs automatically on:
 
 **Note**: The Android version requires internet access and may need additional permissions for automation features.
 
+**Testing on Windows:** See [ANDROID_TESTING_WINDOWS.md](ANDROID_TESTING_WINDOWS.md) for detailed instructions on how to test the Android APK on Windows using emulators or physical devices.
+
 ## Release Types
 
 ### Tagged Releases (v*)
