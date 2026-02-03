@@ -104,8 +104,8 @@ public class ExecutionViewModel : ViewModelBase
 
             var successCount = results.Count(r => r.Success);
             
-            // Ensure UI property updates happen on UI thread
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            // Ensure UI property updates happen on UI thread (fire-and-forget)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
             });
@@ -117,8 +117,8 @@ public class ExecutionViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            // Ensure UI property updates happen on UI thread
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            // Ensure UI property updates happen on UI thread (fire-and-forget)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 StatusMessage = $"Error: {ex.Message}";
             });
@@ -127,8 +127,8 @@ public class ExecutionViewModel : ViewModelBase
         }
         finally
         {
-            // Ensure UI property updates happen on UI thread
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            // Ensure UI property updates happen on UI thread (fire-and-forget)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 IsExecuting = false;
             });
