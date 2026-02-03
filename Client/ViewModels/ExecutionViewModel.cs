@@ -83,7 +83,17 @@ public class ExecutionViewModel : ViewModelBase
         if (IsExecuting) return;
 
         IsExecuting = true;
-        LogMessages.Clear();
+        
+        // Clear log messages on UI thread - same pattern as AddLog for consistency
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            LogMessages.Clear();
+        }
+        else
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LogMessages.Clear());
+        }
+        
         AddLog("Starting execution...");
 
         try
@@ -101,7 +111,13 @@ public class ExecutionViewModel : ViewModelBase
             var results = await _executionService.ExecuteForAllUsersAsync();
 
             var successCount = results.Count(r => r.Success);
-            StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
+            
+            // Update status message on UI thread, await to ensure order with subsequent logs
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                StatusMessage = $"Execution completed: {successCount}/{results.Count} successful";
+            });
+            
             AddLog($"\n=== Execution Complete ===");
             AddLog($"Total users: {results.Count}");
             AddLog($"Successful: {successCount}");
@@ -109,12 +125,22 @@ public class ExecutionViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            // Update status message on UI thread, await to ensure order with subsequent logs
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                StatusMessage = $"Error: {ex.Message}";
+            });
+            
             AddLog($"ERROR: {ex.Message}");
         }
         finally
         {
-            IsExecuting = false;
+            // MUST await to prevent race condition if user clicks button again immediately
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                IsExecuting = false;
+            });
+            
             if (_executionService != null)
             {
                 _executionService.ProgressUpdated -= OnProgressUpdated;
@@ -148,7 +174,18 @@ public class ExecutionViewModel : ViewModelBase
     private void AddLog(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
-        AddLogMessageToCollection(timestampedMessage);
+        
+        // Ensure we're on the UI thread before modifying the collection
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            // Already on UI thread, add directly
+            AddLogMessageToCollection(timestampedMessage);
+        }
+        else
+        {
+            // Not on UI thread, dispatch to UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => AddLogMessageToCollection(timestampedMessage));
+        }
     }
 
     /// <summary>
