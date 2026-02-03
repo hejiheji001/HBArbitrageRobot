@@ -14,9 +14,9 @@
 
     <Grid ColumnDefinitions="200,*">
         <!-- Navigation Panel -->
-        <Border Grid.Column="0" Background="#F0F0F0" Padding="10">
+        <Border Grid.Column="0" Background="Black" Padding="10">
             <StackPanel Spacing="5">
-                <TextBlock Text="HBArbitrage Robot" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
+                <TextBlock Text="HBArbitrage Robot" FontSize="16" FontWeight="Bold" Margin="0,0,0,20" Foreground="White"/>
                 
                 <Button Content="👥 Users" Command="{Binding ShowUserManagementCommand}" HorizontalAlignment="Stretch"/>
                 <Button Content="▶️ Execute" Command="{Binding ShowExecutionCommand}" HorizontalAlignment="Stretch"/>
@@ -26,8 +26,8 @@
         </Border>
 
         <!-- Content Panel -->
-        <Border Grid.Column="1" Padding="10">
-            <ContentControl Content="{Binding CurrentView}">
+        <Border Grid.Column="1" Padding="10" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <ContentControl Content="{Binding CurrentView}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="vm:UserManagementViewModel">
                         <views:UserManagementView/>

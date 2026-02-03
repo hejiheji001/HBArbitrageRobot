@@ -13,6 +13,19 @@ internal class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
+        // Check environment for development mode
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+        var isDevelopment = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);
+        
+        // Always show console output if in development mode
+        if (isDevelopment)
+        {
+            Console.WriteLine("=== HBArbitrageRobot - Development Mode ===");
+            Console.WriteLine($"Environment: {environment}");
+            Console.WriteLine($"Args: {string.Join(" ", args)}");
+            Console.WriteLine();
+        }
+        
         // Check if CLI mode is requested
         // CLI mode is activated when command-line arguments are provided (username and password)
         // or when explicit --cli flag is used
@@ -22,6 +35,11 @@ internal class Program
         }
 
         // Otherwise, run GUI mode
+        if (isDevelopment)
+        {
+            Console.WriteLine("Starting GUI mode...");
+        }
+        
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         return 0;
     }
