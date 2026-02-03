@@ -10,7 +10,7 @@ public class BrowserService
     /// <summary>
     /// Initialize Playwright and launch browser with retry logic
     /// </summary>
-    public async Task<(IPlaywright playwright, IBrowser browser)> InitializeBrowserAsync(bool? headless = null)
+    public async Task<(IPlaywright playwright, IBrowser browser)> InitializeBrowserAsync(bool? headless = true)
     {
         ConfigurePlaywrightEnvironment();
         

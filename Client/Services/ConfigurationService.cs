@@ -11,6 +11,7 @@ public class ConfigurationService
     public string PurchaseTime { get; private set; } = "14:15";
     public decimal MaxInvestmentPerHolder { get; private set; } = 1000m;
     public int RetryDelaySeconds { get; private set; } = 60;
+    public bool Headless { get; set; } = true;
 
     /// <summary>
     /// Load configuration from command-line arguments and environment variables
@@ -21,6 +22,7 @@ public class ConfigurationService
         Password = GetConfig(args, "PASSWORD", 1);
         ApiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
         PurchaseTime = GetConfig(args, "PURCHASE_TIME", 4, "14:15");
+        Headless = bool.Parse(GetConfig(args, "HEADLESS", 5, "true"));
 
         // Parse max investment with error handling
         try

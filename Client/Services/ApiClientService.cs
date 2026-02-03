@@ -19,7 +19,7 @@ public class ApiClientService
     /// </summary>
     /// <param name="baseUrl">The base URL of the server API</param>
     /// <returns>A tuple containing the LOF data (if any) and a flag indicating if the client should wait</returns>
-    public async Task<(List<LofArbitrageData>?, bool shouldWait)> FetchLofDataFromApiAsync(string baseUrl)
+    public async Task<(List<LofArbitrageData>, bool shouldWait)> FetchLofDataFromApiAsync(string baseUrl)
     {
         try
         {
@@ -35,7 +35,7 @@ public class ApiClientService
                 if (data == null || data.Count == 0)
                 {
                     Console.WriteLine("Server returned empty data - entering standby mode");
-                    return (null, true);
+                    return ([], true);
                 }
                 
                 return (data, false);
@@ -49,23 +49,23 @@ public class ApiClientService
                 // Check if it's the "fetch in progress" message
                 if (errorContent.Contains("Data fetch in progress", StringComparison.OrdinalIgnoreCase))
                 {
-                    return (null, true);
+                    return ([], true);
                 }
                 
-                return (null, false);
+                return ([], false);
             }
             else
             {
                 Console.WriteLine($"API returned status code: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error content: {errorContent}");
-                return (null, false);
+                return ([], false);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to fetch data from API: {ex.Message}");
-            return (null, false);
+            return ([], false);
         }
     }
 }

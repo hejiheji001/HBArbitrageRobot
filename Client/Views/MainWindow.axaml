@@ -4,7 +4,6 @@
         xmlns:views="using:Client.Views"
         x:Class="Client.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
         Title="HBArbitrage Robot - Multi-User Client"
         Width="1200" Height="700">
 

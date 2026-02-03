@@ -92,8 +92,7 @@ internal class Program
                 {
                     Console.WriteLine($"\n✓ Fetched {lofData.Count} LOF items from server");
 
-                    // Run arbitrage workflow with headless browser (CLI mode always uses headless)
-                    await orchestrator.RunArbitrageWorkflowAsync(lofData, headless: true);
+                    await orchestrator.RunArbitrageWorkflowAsync(lofData);
 
                     Console.WriteLine("\n✓ Arbitrage workflow completed successfully");
                 }

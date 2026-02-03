@@ -38,7 +38,7 @@
     },
     "Client (Command Line Args)": {
       "commandName": "Project",
-      "commandLineArgs": "120000286633 962464 https://localhost:64743 14:15 1000",
+      "commandLineArgs": "120000286633 962464 https://localhost:64743 14:15 1000 false",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
         "HEADLESS": "false"
