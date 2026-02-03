@@ -116,43 +116,72 @@ dotnet run
 
 The server will start at `http://localhost:5000` (or `https://localhost:5001`).
 
-### 5. Run the Client (Testing/Development Mode)
+### 5. Run the Client
 
-**Development Mode (Browser UI Visible):**
+The Client supports two running modes:
 
-To run with the browser UI visible for debugging, set the environment to Development:
+#### **GUI Mode (Default)**
+
+Run without arguments to start the graphical user interface:
 
 ```bash
 cd Client
-export DOTNET_ENVIRONMENT=Development
-# Or: export ASPNETCORE_ENVIRONMENT=Development
+dotnet run
+```
 
-dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
+The GUI provides:
+- Multi-user credential management
+- Manual execution control
+- Execution history and logs
+- Configuration settings
+
+**Note:** Playwright runs in headless mode when the GUI is active to avoid browser window overlap.
+
+#### **CLI Mode (Command-Line)**
+
+Run with command-line arguments or `--cli` flag for console-only operation:
+
+**With explicit arguments:**
+```bash
+cd Client
+dotnet run -- <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
+
 # Example:
-# dotnet run myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
+dotnet run -- myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
 ```
 
-**Production Mode (Headless):**
-
-For headless execution (default in production):
-
+**With environment variables:**
 ```bash
 cd Client
-dotnet run <username> <password> [api_url] [pwd] [purchase_time] [max_investment]
-```
-
-Or use environment variables:
-
-```bash
 export USERNAME="your_username"
 export PASSWORD="your_password"
 export PWD="your_transaction_password"
 export PURCHASE_TIME="14:15"
 export API_URL="http://localhost:5000"
 export MAX_INVESTMENT="1000"
-# Optional: Show browser UI (alternative to DOTNET_ENVIRONMENT)
-# export HEADLESS=false
-dotnet run
+
+# Run with --cli flag
+dotnet run -- --cli
+# Or with -c shorthand
+dotnet run -- -c
+```
+
+**CLI Mode Features:**
+- Continuous arbitrage workflow with automatic scheduling
+- Headless Playwright browser automation
+- Waits until 14:20 Shanghai time for next execution
+- Suitable for automated/scheduled deployments
+
+**Browser UI Visibility (Development/Testing):**
+
+To see the browser UI while debugging in CLI mode:
+
+```bash
+export DOTNET_ENVIRONMENT=Development
+# Or: export ASPNETCORE_ENVIRONMENT=Development
+# Or: export HEADLESS=false
+
+dotnet run -- myuser mypass http://localhost:5000 my_txn_pwd 14:15 1000
 ```
 
 ## Docker Deployment
