@@ -1,0 +1,32 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and fill in your actual values
+# DO NOT commit terraform.tfvars to version control
+
+# AWS Configuration
+aws_region   = "us-east-1"  # Change to your preferred AWS region
+project_name = "hbarbitrage"
+
+# Docker Image Tag
+image_tag = "latest"  # or specific version like "v1.0.0"
+
+# Touker.com Credentials (REQUIRED)
+touker_username             = "your_username"
+touker_password             = "your_password"
+touker_transaction_password = "your_transaction_password"
+
+# Trading Configuration
+purchase_time  = "14:15"  # Purchase time in HH:MM format (Shanghai time)
+max_investment = "1000"   # Maximum investment per stock holder per fund (in yuan)
+
+# API Security
+enable_api_auth = false  # Set to true to enable IAM authentication for Server API
+
+# Logging
+log_retention_days = 7  # CloudWatch Logs retention period in days
+
+# Resource Tags
+tags = {
+  Project     = "HBArbitrageRobot"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+}

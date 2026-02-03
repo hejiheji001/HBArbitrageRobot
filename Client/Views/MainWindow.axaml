@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Client.ViewModels"
+        xmlns:views="using:Client.Views"
+        x:Class="Client.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="HBArbitrage Robot - Multi-User Client"
+        Width="1200" Height="700">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid ColumnDefinitions="200,*">
+        <!-- Navigation Panel -->
+        <Border Grid.Column="0" Background="#F0F0F0" Padding="10">
+            <StackPanel Spacing="5">
+                <TextBlock Text="HBArbitrage Robot" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
+                
+                <Button Content="👥 Users" Command="{Binding ShowUserManagementCommand}" HorizontalAlignment="Stretch"/>
+                <Button Content="▶️ Execute" Command="{Binding ShowExecutionCommand}" HorizontalAlignment="Stretch"/>
+                <Button Content="📊 Results" Command="{Binding ShowResultsCommand}" HorizontalAlignment="Stretch"/>
+                <Button Content="⚙️ Settings" Command="{Binding ShowSettingsCommand}" HorizontalAlignment="Stretch"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Content Panel -->
+        <Border Grid.Column="1" Padding="10">
+            <ContentControl Content="{Binding CurrentView}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="vm:UserManagementViewModel">
+                        <views:UserManagementView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ExecutionViewModel">
+                        <views:ExecutionView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ResultsViewModel">
+                        <views:ResultsView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:SettingsViewModel">
+                        <views:SettingsView/>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </Border>
+    </Grid>
+
+</Window>

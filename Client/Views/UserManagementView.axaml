@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Client.ViewModels"
+             x:Class="Client.Views.UserManagementView"
+             x:DataType="vm:UserManagementViewModel">
+
+    <Grid RowDefinitions="Auto,*" Margin="10">
+        <TextBlock Grid.Row="0" Text="User Management" FontSize="20" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <Grid Grid.Row="1" ColumnDefinitions="2*,*">
+            <!-- User List -->
+            <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,10,0">
+                <Grid RowDefinitions="Auto,*">
+                    <Button Grid.Row="0" Content="➕ Add User" Command="{Binding AddUserCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                    
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}"
+                              AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding IsEnabled}" Width="80"/>
+                            <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="*"/>
+                            <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="*"/>
+                            <DataGridTextColumn Header="Last Executed" Binding="{Binding LastExecutedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150"/>
+                            <DataGridTemplateColumn Header="Actions" Width="150">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Button Content="✏️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).EditUserCommand}" CommandParameter="{Binding}" Width="35" Height="30"/>
+                                            <Button Content="🗑️" Command="{Binding $parent[DataGrid].((vm:UserManagementViewModel)DataContext).DeleteUserCommand}" CommandParameter="{Binding}" Width="35" Height="30"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- Edit Form -->
+            <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10" IsVisible="{Binding IsEditMode}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="{Binding SelectedUser, Converter={x:Static ObjectConverters.IsNull}, ConverterParameter='Add User|Edit User'}" 
+                               FontSize="16" FontWeight="Bold"/>
+                    
+                    <TextBlock Text="Username:"/>
+                    <TextBox Text="{Binding Username}"/>
+                    
+                    <TextBlock Text="Password:"/>
+                    <TextBox Text="{Binding Password}" PasswordChar="*"/>
+                    
+                    <TextBlock Text="Transaction Password:"/>
+                    <TextBox Text="{Binding TransactionPassword}" PasswordChar="*"/>
+                    
+                    <TextBlock Text="Display Name (optional):"/>
+                    <TextBox Text="{Binding DisplayName}"/>
+                    
+                    <CheckBox Content="Enabled" IsChecked="{Binding IsEnabled}"/>
+                    
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                        <Button Content="💾 Save" Command="{Binding SaveUserCommand}"/>
+                        <Button Content="❌ Cancel" Command="{Binding CancelEditCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+
+</UserControl>

@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Client.ViewModels"
+             x:Class="Client.Views.ExecutionView"
+             x:DataType="vm:ExecutionViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
+        <TextBlock Grid.Row="0" Text="Execute Arbitrage" FontSize="20" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <!-- Settings -->
+        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="API URL:" Margin="0,0,10,5"/>
+                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding ApiUrl}" Margin="0,0,10,0"/>
+                
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Purchase Time:" Margin="0,0,10,5"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PurchaseTime}" Margin="0,0,10,0"/>
+                
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Max Investment (yuan):" Margin="0,0,0,5"/>
+                <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MaxInvestment}"/>
+                
+                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" 
+                        Content="▶️ Start Execution" 
+                        Command="{Binding StartExecutionCommand}" 
+                        IsEnabled="{Binding !IsExecuting}"
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Left"
+                        Padding="20,10"/>
+                
+                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" 
+                           Text="{Binding StatusMessage}" 
+                           FontWeight="Bold"
+                           Margin="0,10,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Log Output -->
+        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Padding="5">
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding LogMessages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Progress Indicator -->
+        <ProgressBar Grid.Row="3" IsIndeterminate="{Binding IsExecuting}" Margin="0,10,0,0"/>
+    </Grid>
+
+</UserControl>

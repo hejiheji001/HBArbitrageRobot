@@ -23,6 +23,29 @@ A .NET 10 application with Server and Client components for automated arbitrage 
 
 - **Docker Support**: Fully containerized with Docker and Docker Compose
 - **CI/CD**: Automated Docker image building and publishing via GitHub Actions
+- **AWS Serverless**: Deploy to AWS Lambda with Terraform for scheduled execution
+- **Mobile Support**: Multiple options for Android deployment
+
+## Deployment Options
+
+This application supports multiple deployment strategies:
+
+1. **Docker Deployment (On-Premise)**: Run on your own server or local machine
+   - See [Docker Deployment](#docker-deployment) section below
+   - Best for: 24/7 operation, full control, existing infrastructure
+
+2. **AWS Serverless (Cloud)**: Deploy to AWS Lambda with scheduled execution
+   - Quick Start: [QUICKSTART_AWS.md](QUICKSTART_AWS.md) - 5-minute deployment guide
+   - Detailed Guide: [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) - Complete documentation
+   - Best for: Cost-effective serverless operation during trading hours only
+   - Runs at 14:00 Shanghai time (Mon-Fri)
+   - Cost: ~$0.80/month
+
+3. **Android Client**: Multiple options for mobile devices
+   - See [DEPLOYMENT_ANDROID.md](DEPLOYMENT_ANDROID.md) for detailed guide
+   - Options: Native APK, Remote monitoring, Termux terminal
+
+**Recommendation**: For most users, deploy Server to **AWS Lambda** (serverless, scheduled) and use Android device for **monitoring** only. This provides the best cost-to-reliability ratio.
 
 ## Requirements
 
@@ -48,7 +71,15 @@ HBArbitrageRobot/
 ├── Client/                 # Playwright Client
 │   ├── Models/            # Data Models
 │   └── Dockerfile         # Client Docker image
+├── terraform/              # AWS Lambda deployment
+│   ├── main.tf            # Infrastructure configuration
+│   ├── variables.tf       # Configurable variables
+│   ├── outputs.tf         # Deployment outputs
+│   ├── deploy.sh          # Automated deployment script
+│   └── README.md          # Terraform guide
 ├── docker-compose.yml      # Docker Compose configuration
+├── DEPLOYMENT_AWS.md       # AWS serverless deployment guide
+├── DEPLOYMENT_ANDROID.md   # Android client deployment guide
 └── README.md
 ```
 
