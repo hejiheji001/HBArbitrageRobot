@@ -16,7 +16,7 @@ jobs:
   build-windows:
     name: Build Windows Client
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
   build-macos:
     name: Build macOS Client
     runs-on: macos-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -135,10 +135,10 @@ jobs:
     needs: [build-windows, build-macos, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -167,10 +167,10 @@ jobs:
     needs: [build-windows, build-macos, build-android]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -191,12 +191,12 @@ jobs:
           prerelease: true
           body: |
             **Latest development build from main branch**
-            
+
             This is an automated build from the latest commit on the main branch.
-            
+
             **Commit:** ${{ github.sha }}
             **Date:** ${{ github.event.head_commit.timestamp }}
-            
+
             Download the appropriate build for your platform:
             - **Windows:** HBArbitrageRobot-Client-Windows-x64.zip
             - **macOS (Intel):** HBArbitrageRobot-Client-macOS-x64.zip
