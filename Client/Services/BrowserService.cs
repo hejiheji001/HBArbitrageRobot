@@ -10,15 +10,15 @@ public class BrowserService
     /// <summary>
     /// Initialize Playwright and launch browser with retry logic
     /// </summary>
-    public async Task<(IPlaywright playwright, IBrowser browser)> InitializeBrowserAsync()
+    public async Task<(IPlaywright playwright, IBrowser browser)> InitializeBrowserAsync(bool? headless = null)
     {
         ConfigurePlaywrightEnvironment();
         
-        var headless = DetermineHeadlessMode();
+        var useHeadless = headless ?? DetermineHeadlessMode();
         
-        Console.WriteLine($"Browser mode: {(headless ? "Headless" : "Visible UI")}");
+        Console.WriteLine($"Browser mode: {(useHeadless ? "Headless" : "Visible UI")}");
 
-        return await LaunchBrowserWithRetryAsync(headless);
+        return await LaunchBrowserWithRetryAsync(useHeadless);
     }
 
     /// <summary>
