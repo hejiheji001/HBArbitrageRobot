@@ -31,10 +31,14 @@ public class WorkflowOrchestrator
     /// <summary>
     /// Run the complete arbitrage workflow
     /// </summary>
-    public async Task RunArbitrageWorkflowAsync(List<LofArbitrageData> lofData)
+    /// <param name="lofData">LOF arbitrage data</param>
+    /// <param name="headless">Whether to run browser in headless mode (default: null, uses auto-detection)</param>
+    public async Task RunArbitrageWorkflowAsync(List<LofArbitrageData> lofData, bool? headless = null)
     {
         // Initialize browser and login
-        var (playwright, browser) = await _browserService.InitializeBrowserAsync();
+        // In CLI mode, we explicitly pass headless=true
+        // In development/testing, we can pass headless=false to see the browser
+        var (playwright, browser) = await _browserService.InitializeBrowserAsync(headless);
         
         using (playwright)
         {

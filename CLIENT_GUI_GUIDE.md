@@ -214,32 +214,111 @@ dotnet restore
 dotnet build
 ```
 
-### Running on Windows
+### Running Modes
+
+The Client supports two distinct running modes:
+
+#### GUI Mode (Default)
+
+Launch the graphical user interface:
 
 ```bash
 cd Client
 dotnet run
 ```
 
-The application will:
-1. Create database at: `%LOCALAPPDATA%\HBArbitrageRobot\credentials.db`
-2. Launch GUI window
-3. Start on Users tab
+Features:
+- Multi-user credential management
+- Manual execution control
+- View execution history and logs
+- Configure application settings
+- Playwright runs in headless mode (no browser window overlap)
 
-### Running on macOS
+#### CLI Mode (Console)
+
+Run in console mode for automated/scheduled deployments:
 
 ```bash
 cd Client
+# With arguments
+dotnet run -- testuser testpass http://localhost:5000 testpwd 14:15 1000
+
+# With environment variables
+export USERNAME=testuser
+export PASSWORD=testpass
+export API_URL=http://localhost:5000
+dotnet run -- --cli
+```
+
+Features:
+- Continuous arbitrage workflow
+- Automatic scheduling (wakes at 14:20 Shanghai time)
+- Headless Playwright automation
+- Suitable for Docker/server deployments
+
+### Mode Detection
+
+- **CLI Mode** triggered when:
+  - First argument is `--cli` or `-c`
+  - First argument doesn't start with `--` (treated as username)
+  
+- **GUI Mode** triggered when:
+  - No arguments provided
+  - First argument starts with `--` (except `--cli`)
+
+### Browser Headless Behavior
+
+- **CLI Mode**: Always headless
+- **GUI Mode**: Always headless (prevents browser window from interfering with GUI)
+- **Development/Testing**: Set `HEADLESS=false` or `DOTNET_ENVIRONMENT=Development` to see browser UI
+
+### Running on Windows
+
+**GUI Mode:**
+```bash
+cd Client
 dotnet run
+```
+
+**CLI Mode:**
+```bash
+cd Client
+dotnet run -- --cli  # or with arguments
+```
+
+The application will:
+1. Create database at: `%LOCALAPPDATA%\HBArbitrageRobot\credentials.db` (GUI mode)
+2. Launch GUI window (GUI mode) or run console workflow (CLI mode)
+3. Start on Users tab (GUI mode)
+
+### Running on macOS
+
+**GUI Mode:**
+```bash
+cd Client
+dotnet run
+```
+
+**CLI Mode:**
+```bash
+cd Client
+dotnet run -- --cli
 ```
 
 Database location: `~/.local/share/HBArbitrageRobot/credentials.db`
 
 ### Running on Linux
 
+**GUI Mode:**
 ```bash
 cd Client
 dotnet run
+```
+
+**CLI Mode:**
+```bash
+cd Client
+dotnet run -- --cli
 ```
 
 Database location: `~/.local/share/HBArbitrageRobot/credentials.db`
@@ -309,11 +388,12 @@ var context = await device.NewContextAsync();
 
 ### Build Errors
 
-Current build has XAML errors related to DataGrid converters. To fix:
+~~Current build has XAML errors related to DataGrid converters.~~ **FIXED**: ObjectConverters class has been created with the required converters:
+- `IsTrue`: Converts boolean to string (✅|❌)
+- `IsNull`: Converts object null check to string (Add User|Edit User)
+- `IsNotNull`: Converts object null check to boolean (for IsVisible binding)
 
-1. Add missing converters in Views
-2. Use correct Avalonia converter syntax
-3. Reference Avalonia.Controls.DataGrid properly
+The converters are now properly referenced in XAML files with the `converters:` namespace prefix.
 
 ### Platform-Specific Issues
 

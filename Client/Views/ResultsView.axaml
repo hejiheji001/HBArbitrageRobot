@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Client.ViewModels"
+             xmlns:converters="using:Client.Converters"
              x:Class="Client.Views.ResultsView"
              x:DataType="vm:ResultsViewModel">
 
@@ -14,7 +15,7 @@
                 <DataGridTemplateColumn Header="Status" Width="60">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Success, Converter={x:Static ObjectConverters.IsTrue}, ConverterParameter='✅|❌'}" 
+                            <TextBlock Text="{Binding Success, Converter={x:Static converters:ObjectConverters.IsTrue}}" 
                                        HorizontalAlignment="Center"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -31,7 +32,7 @@
 
         <!-- Details Panel -->
         <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,10,0,0"
-                IsVisible="{Binding SelectedResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                IsVisible="{Binding SelectedResult, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
             <Grid RowDefinitions="Auto,*">
                 <TextBlock Grid.Row="0" Text="Execution Log:" FontWeight="Bold" Margin="0,0,0,5"/>
                 <ScrollViewer Grid.Row="1" Height="200">
