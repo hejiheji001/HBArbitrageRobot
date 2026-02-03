@@ -84,8 +84,16 @@ public class ExecutionViewModel : ViewModelBase
 
         IsExecuting = true;
         
-        // Clear on UI thread - AddLog() handles its own thread dispatching
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => LogMessages.Clear());
+        // Clear log messages on UI thread - same pattern as AddLog for consistency
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            LogMessages.Clear();
+        }
+        else
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LogMessages.Clear());
+        }
+        
         AddLog("Starting execution...");
 
         try
