@@ -151,6 +151,10 @@ public class ExecutionViewModel : ViewModelBase
         AddLogMessageToCollection(timestampedMessage);
     }
 
+    /// <summary>
+    /// Adds a timestamped message to the log collection.
+    /// MUST be called from the UI thread.
+    /// </summary>
     private void AddLogMessageToCollection(string timestampedMessage)
     {
         LogMessages.Add(timestampedMessage);

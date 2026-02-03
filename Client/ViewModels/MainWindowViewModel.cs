@@ -83,10 +83,17 @@ public class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            ResultsViewModel.RefreshResults();
-            // Ensure UI updates happen on UI thread
+            // Fetch data first (may be synchronous I/O but typically fast from local storage)
+            var results = _credentialStorage.GetExecutionResults(limit: 200);
+            
+            // Update UI on UI thread - both results and view change together
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                ResultsViewModel.Results.Clear();
+                foreach (var result in results)
+                {
+                    ResultsViewModel.Results.Add(result);
+                }
                 CurrentView = ResultsViewModel;
             });
         }
