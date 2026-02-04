@@ -1,5 +1,7 @@
 using Client.Models;
 using SQLite;
+using System;
+using System.Linq;
 using System.Text;
 
 namespace Client.Services;
@@ -11,6 +13,8 @@ public class CredentialStorageService
 {
     private readonly string _dbPath;
     private readonly byte[] _entropy;
+
+    public event EventHandler<ExecutionResult>? ExecutionResultSaved;
 
     public CredentialStorageService()
     {
@@ -31,6 +35,17 @@ public class CredentialStorageService
         using var db = new SQLiteConnection(_dbPath);
         db.CreateTable<UserCredential>();
         db.CreateTable<ExecutionResult>();
+        EnsureExecutionResultSchema(db);
+    }
+
+    private static void EnsureExecutionResultSchema(SQLiteConnection db)
+    {
+        const string tableName = "ExecutionResults";
+        var columns = db.GetTableInfo(tableName);
+        if (!columns.Any(c => c.Name.Equals(nameof(ExecutionResult.FundSummary), StringComparison.OrdinalIgnoreCase)))
+        {
+            db.Execute($"ALTER TABLE {tableName} ADD COLUMN {nameof(ExecutionResult.FundSummary)} TEXT");
+        }
     }
 
     /// <summary>
@@ -174,6 +189,8 @@ public class CredentialStorageService
             user.LastExecutedAt = result.ExecutionTime;
             db.Update(user);
         }
+
+        ExecutionResultSaved?.Invoke(this, result);
     }
 
     public List<ExecutionResult> GetExecutionResults(int? userCredentialId = null, int limit = 100)

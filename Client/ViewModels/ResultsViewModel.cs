@@ -14,6 +14,7 @@ public class ResultsViewModel : ViewModelBase
     {
         _credentialStorage = credentialStorage;
         Results = new ObservableCollection<ExecutionResult>();
+        _credentialStorage.ExecutionResultSaved += OnExecutionResultSaved;
         RefreshResults();
     }
 
@@ -39,5 +40,10 @@ public class ResultsViewModel : ViewModelBase
                 Results.Add(result);
             }
         });
+    }
+
+    private void OnExecutionResultSaved(object? sender, ExecutionResult e)
+    {
+        RefreshResults();
     }
 }

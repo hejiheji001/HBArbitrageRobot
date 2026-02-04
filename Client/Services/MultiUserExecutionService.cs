@@ -1,6 +1,7 @@
 using Client.Models;
 using Microsoft.Playwright;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 
 namespace Client.Services;
@@ -105,6 +106,7 @@ public class MultiUserExecutionService(
             {
                 Log("No arbitrage opportunities available");
                 result.Success = true; // Not an error, just no data
+                result.FundSummary = "No arbitrage opportunities available";
                 result.LogMessages = logMessages.ToString();
                 result.DurationSeconds = sw.Elapsed.TotalSeconds;
                 credentialStorage.SaveExecutionResult(result);
@@ -158,6 +160,7 @@ public class MultiUserExecutionService(
                     ArbitrageService.CalculateInvestments(lofData, stockHolderList, maxInvestment);
                     var totalInvestment = lofData.Sum(item => item.Amount * stockHolderList.Count);
                     result.TotalInvestment = totalInvestment;
+                    result.FundSummary = BuildFundSummary(lofData, stockHolderList.Count);
                     Log($"Total investment calculated: {totalInvestment:N2} yuan");
 
                     // Create arbitrage orders
@@ -214,6 +217,23 @@ public class MultiUserExecutionService(
         credentialStorage.SaveExecutionResult(result);
         
         return result;
+    }
+
+    private static string BuildFundSummary(IEnumerable<LofArbitrageData> lofData, int stockHolderCount)
+    {
+        if (stockHolderCount <= 0)
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder();
+        foreach (var item in lofData)
+        {
+            var total = stockHolderCount * item.Amount;
+            sb.AppendLine($"{item.LofFund} - {item.Name}: {total:N2} yuan");
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private void ReportProgress(string message)

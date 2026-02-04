@@ -49,6 +49,7 @@ public class MainWindowViewModel : ViewModelBase
             // Ensure UI updates happen on UI thread
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                UserManagementViewModel.RefreshUsers();
                 CurrentView = UserManagementViewModel;
             });
         }

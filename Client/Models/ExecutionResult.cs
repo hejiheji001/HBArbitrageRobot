@@ -28,6 +28,11 @@ public class ExecutionResult
     public decimal TotalInvestment { get; set; }
 
     /// <summary>
+    /// Summary of fund allocations captured during execution
+    /// </summary>
+    public string FundSummary { get; set; } = string.Empty;
+
+    /// <summary>
     /// Detailed log messages from the execution
     /// </summary>
     public string LogMessages { get; set; } = string.Empty;

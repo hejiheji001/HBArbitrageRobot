@@ -1,4 +1,5 @@
 using ReactiveUI;
+using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Client.Models;
@@ -10,6 +11,8 @@ public class ExecutionViewModel : ViewModelBase
 {
     private readonly CredentialStorageService _credentialStorage;
     private MultiUserExecutionService? _executionService;
+    private ConsoleRedirectWriter? _consoleRedirectWriter;
+    private ConsoleRedirectWriter? _consoleErrorRedirectWriter;
     
     private bool _isExecuting;
     private string _apiUrl;
@@ -37,6 +40,7 @@ public class ExecutionViewModel : ViewModelBase
         }
         
         LogMessages = new ObservableCollection<string>();
+        SetupConsoleLogRedirection();
         
         StartExecutionCommand = ReactiveCommand.Create(StartExecution);
     }
@@ -74,6 +78,32 @@ public class ExecutionViewModel : ViewModelBase
     }
 
     public ICommand StartExecutionCommand { get; }
+
+    private void SetupConsoleLogRedirection()
+    {
+        try
+        {
+            if (Console.Out is ConsoleRedirectWriter existingWriter)
+            {
+                existingWriter.UpdateCallback(AddLog);
+                _consoleRedirectWriter = existingWriter;
+                Console.SetError(existingWriter);
+                return;
+            }
+
+            var currentOut = Console.Out;
+            _consoleRedirectWriter = new ConsoleRedirectWriter(currentOut, AddLog);
+            Console.SetOut(_consoleRedirectWriter);
+
+            var currentError = Console.Error;
+            _consoleErrorRedirectWriter = new ConsoleRedirectWriter(currentError, AddLog);
+            Console.SetError(_consoleErrorRedirectWriter);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Console redirection failed: {ex.Message}");
+        }
+    }
 
     private async void StartExecution()
     {

@@ -74,7 +74,7 @@ public class UserManagementViewModel : ViewModelBase
     public ICommand SaveUserCommand { get; }
     public ICommand CancelEditCommand { get; }
 
-    private void RefreshUsers()
+    public void RefreshUsers()
     {
         // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var users = _credentialStorage.GetAllUsers();

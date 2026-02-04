@@ -1,49 +1,28 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Client.ViewModels"
-             xmlns:converters="using:Client.Converters"
              x:Class="Client.Views.ResultsView"
              x:DataType="vm:ResultsViewModel">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+    <Grid RowDefinitions="Auto,*" Margin="10">
         <TextBlock Grid.Row="0" Text="Execution Results" FontSize="20" FontWeight="Bold" Margin="0,0,0,10"/>
         
         <!-- Results List -->
         <DataGrid Grid.Row="1" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}"
                   AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Status" Width="60">
+                <DataGridTextColumn Header="User" Binding="{Binding Username}" Width="150"/>
+                <DataGridTextColumn Header="Date / Time" Binding="{Binding ExecutionTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="180"/>
+                <DataGridTemplateColumn Header="Fund Investments" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Success, Converter={x:Static converters:ObjectConverters.IsTrue}}" 
-                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding FundSummary}" TextWrapping="Wrap" Margin="0,0,10,0"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="150"/>
-                <DataGridTextColumn Header="Execution Time" Binding="{Binding ExecutionTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="180"/>
-                <DataGridTextColumn Header="LOF Items" Binding="{Binding LofItemsProcessed}" Width="100"/>
-                <DataGridTextColumn Header="Holders" Binding="{Binding StockHoldersCount}" Width="80"/>
-                <DataGridTextColumn Header="Investment" Binding="{Binding TotalInvestment, StringFormat={}{0:N2}}" Width="120"/>
-                <DataGridTextColumn Header="Duration (s)" Binding="{Binding DurationSeconds, StringFormat={}{0:F1}}" Width="110"/>
-                <DataGridTextColumn Header="Error" Binding="{Binding ErrorMessage}" Width="*"/>
+                <DataGridTextColumn Header="Total (yuan)" Binding="{Binding TotalInvestment, StringFormat={}{0:N2}}" Width="150"/>
             </DataGrid.Columns>
         </DataGrid>
-
-        <!-- Details Panel -->
-        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,10,0,0"
-                IsVisible="{Binding SelectedResult, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
-            <Grid RowDefinitions="Auto,*">
-                <TextBlock Grid.Row="0" Text="Execution Log:" FontWeight="Bold" Margin="0,0,0,5"/>
-                <ScrollViewer Grid.Row="1" Height="200">
-                    <TextBox Text="{Binding SelectedResult.LogMessages}" 
-                             IsReadOnly="True" 
-                             TextWrapping="Wrap"
-                             FontFamily="Consolas"
-                             FontSize="11"/>
-                </ScrollViewer>
-            </Grid>
-        </Border>
     </Grid>
 
 </UserControl>
