@@ -8,7 +8,6 @@ namespace Client.Services;
 /// </summary>
 public class WorkflowOrchestrator(
     ConfigurationService config,
-    ApiClientService apiClient,
     BrowserService browserService,
     AuthenticationService authService,
     ArbitrageService arbitrageService)
@@ -18,7 +17,6 @@ public class WorkflowOrchestrator(
     /// Run the complete arbitrage workflow
     /// </summary>
     /// <param name="lofData">LOF arbitrage data</param>
-    /// <param name="headless">Whether to run browser in headless mode (default: null, uses auto-detection)</param>
     public async Task RunArbitrageWorkflowAsync(List<LofArbitrageData> lofData)
     {
         // Initialize browser and login
