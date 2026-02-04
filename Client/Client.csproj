@@ -9,8 +9,17 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64;android-arm64;android-x64</RuntimeIdentifiers>
     <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
+  </PropertyGroup>
+
+  <!-- Desktop runtime identifiers (when not building for Android) -->
+  <PropertyGroup Condition="'$(BuildForAndroid)' != 'true'">
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- Android runtime identifiers (when building for Android) -->
+  <PropertyGroup Condition="'$(BuildForAndroid)' == 'true'">
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <!-- Desktop-specific properties -->
