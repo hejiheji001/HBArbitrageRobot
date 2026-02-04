@@ -118,7 +118,7 @@ public class MultiUserExecutionService(
 
             // Initialize browser and execute workflow
             var browserService = new BrowserService();
-            var authService = new AuthenticationService(user.DecryptedPassword ?? "", user.DecryptedPassword ?? "");
+            var authService = new AuthenticationService(user.Username, user.DecryptedPassword ?? "");
             var arbitrageService = new ArbitrageService(authService);
 
             Log("Initializing browser (headless mode)...");

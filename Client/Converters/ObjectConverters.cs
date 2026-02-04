@@ -32,4 +32,20 @@ public static class ObjectConverters
     {
         return value != null;
     });
+
+    /// <summary>
+    /// Converter that converts IsEnabled boolean to toggle icon
+    /// </summary>
+    public static readonly IValueConverter EnabledToIcon = new FuncValueConverter<bool, string>((value) =>
+    {
+        return value ? "✓" : "✗";
+    });
+
+    /// <summary>
+    /// Converter that converts IsEnabled boolean to tooltip text
+    /// </summary>
+    public static readonly IValueConverter EnabledToTooltip = new FuncValueConverter<bool, string>((value) =>
+    {
+        return value ? "Click to disable this user" : "Click to enable this user";
+    });
 }

@@ -26,6 +26,7 @@ public class UserManagementViewModel : ViewModelBase
         DeleteUserCommand = ReactiveCommand.Create<UserCredential>(DeleteUser);
         SaveUserCommand = ReactiveCommand.Create(SaveUser);
         CancelEditCommand = ReactiveCommand.Create(CancelEdit);
+        ToggleEnabledCommand = ReactiveCommand.Create<UserCredential>(ToggleEnabled);
         
         RefreshUsers();
     }
@@ -73,6 +74,8 @@ public class UserManagementViewModel : ViewModelBase
     public ICommand DeleteUserCommand { get; }
     public ICommand SaveUserCommand { get; }
     public ICommand CancelEditCommand { get; }
+    public ICommand ToggleEnabledCommand { get; }
+
 
     public void RefreshUsers()
     {
@@ -113,6 +116,15 @@ public class UserManagementViewModel : ViewModelBase
         if (user == null) return;
 
         _credentialStorage.DeleteUser(user.Id);
+        RefreshUsers();
+    }
+
+    private void ToggleEnabled(UserCredential? user)
+    {
+        if (user == null) return;
+
+        user.IsEnabled = !user.IsEnabled;
+        _credentialStorage.SaveUser(user);
         RefreshUsers();
     }
 

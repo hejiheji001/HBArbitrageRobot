@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy csproj and restore
@@ -13,10 +13,10 @@ RUN dotnet build Client.csproj -c Release -o /app/build
 
 # Publish stage
 FROM build AS publish
-RUN dotnet publish Client.csproj -c Release -o /app/publish
+RUN dotnet publish Client.csproj -c Release -f net9.0 -o /app/publish
 
 # Runtime stage - use SDK image for Playwright support
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
 COPY --from=publish /app/publish .
@@ -28,15 +28,15 @@ ENV PLAYWRIGHT_BROWSERS_PATH=0
 
 # Install Playwright dependencies using official Playwright installation
 # First install PowerShell and required tools
-RUN apt-get update && apt-get install -y \
-    wget \
-    ca-certificates \
-    && wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
-    && dpkg -i packages-microsoft-prod.deb \
-    && rm packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y powershell \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y wget ca-certificates && \
+    update-ca-certificates && \
+    wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get update && \
+    apt-get install -y powershell && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Playwright browsers and dependencies
 # The playwright.ps1 script is included with Microsoft.Playwright package in the publish output
