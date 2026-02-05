@@ -94,6 +94,9 @@ jobs:
             ${{ steps.ecr-repo.outputs.repository_uri }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Force Docker v2 schema format for AWS Lambda compatibility
+          provenance: false
+          outputs: type=image,name=${{ steps.ecr-repo.outputs.repository_uri }},push=true,oci-mediatypes=false
       
       - name: Ensure Lambda Function Exists
         id: lambda-check
