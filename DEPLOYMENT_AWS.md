@@ -356,6 +356,22 @@ aws logs tail /aws/lambda/hbarbitrage-client --follow
 
 ## Configuration
 
+### AWS IAM Authentication
+
+The Lambda Function URL is configured with IAM authentication for security. When the Client connects to AWS Lambda (not localhost), it automatically signs requests using AWS Sigv4.
+
+**Client Requirements for AWS Lambda:**
+- AWS credentials must be available in the environment where the Client runs
+- Credentials can be provided via:
+  - Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+  - AWS credentials file: `~/.aws/credentials`
+  - IAM role (when running in AWS Lambda or EC2)
+
+**For localhost development:**
+- No AWS credentials needed
+- Client automatically detects localhost URLs and skips IAM signing
+- Use `http://localhost:5000` or `https://localhost:64743` for local testing
+
 ### Modifying Schedule
 
 To change execution times, edit `terraform/main.tf`:

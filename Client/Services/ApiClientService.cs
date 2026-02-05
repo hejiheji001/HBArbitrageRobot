@@ -37,7 +37,9 @@ public class ApiClientService
         try
         {
             // Get AWS credentials from environment or default credential chain
+            #pragma warning disable CS0618 // FallbackCredentialsFactory is deprecated but still functional
             var credentials = FallbackCredentialsFactory.GetCredentials();
+            #pragma warning restore CS0618
             var immutableCredentials = credentials.GetCredentials();
             
             // Prepare request for signing
