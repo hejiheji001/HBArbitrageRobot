@@ -73,13 +73,23 @@ The Lambda function is configured with:
 
 - **Function Name:** `HBArbitrageServer`
 - **Region:** `ap-northeast-1` (Tokyo)
-- **Runtime:** Container Image (.NET 9)
+- **Runtime:** Container Image (.NET 9 or .NET 10 - currently using .NET 9)
 - **Architecture:** x86_64
 - **Memory:** 512 MB
 - **Timeout:** 900 seconds (15 minutes)
 - **Environment Variables:**
   - `ASPNETCORE_ENVIRONMENT=Production`
   - `ASPNETCORE_URLS=http://+:8080`
+
+### About .NET Version
+
+The project currently uses **.NET 9**, which is the latest stable version. While the code has comments referring to ".NET 10" for forward compatibility, .NET 10 is still in preview. 
+
+Since we're using **container image deployment**, you can:
+- Continue using .NET 9 (recommended, stable)
+- Upgrade to .NET 10 preview if desired (update Dockerfile base images)
+
+The container approach allows using any .NET version without depending on AWS Lambda managed runtimes.
 
 ## Accessing the Server
 

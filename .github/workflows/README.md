@@ -4,29 +4,35 @@ This directory contains automated workflows for HBArbitrageRobot.
 
 ## Available Workflows
 
-### 1. Deploy to AWS with Terraform (`terraform-deploy.yml`)
+### 1. Deploy Server to AWS Lambda (`deploy-lambda-server.yml`)
 
-**Purpose**: Automates deployment to AWS Lambda in ap-northeast-1 region
+**Purpose**: Automates deployment of the Server to AWS Lambda in ap-northeast-1 (Tokyo) region
 
 **Triggers**:
-- Push to main/master branch (paths: `terraform/**`, `Server/**`, workflow file)
+- Push to main/master branch (paths: `Server/**`, workflow file)
 - Manual dispatch from Actions UI
 
 **What it does**:
-1. Runs Terraform to create/update AWS infrastructure
-2. Builds Docker images for Server and Client
-3. Pushes images to Amazon ECR
-4. Updates Lambda functions
-5. Tests deployment
+1. Creates ECR repository (if needed)
+2. Builds Server Docker image
+3. Pushes image to Amazon ECR
+4. Creates Lambda function (if needed) with all required configuration
+5. Updates Lambda function code (if already exists)
+6. Displays Function URL for accessing the API
 
 **Required Secrets**:
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `TOUKER_USERNAME`
-- `TOUKER_PASSWORD`
-- `TOUKER_TRANSACTION_PASSWORD`
+- `AWS_ACCESS_KEY_ID` - Your AWS access key
+- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
 
-**Documentation**: See [GITHUB_ACTIONS_WORKFLOW.md](../../GITHUB_ACTIONS_WORKFLOW.md)
+**Lambda Configuration**:
+- Function Name: `HBArbitrageServer`
+- Region: `ap-northeast-1` (Tokyo)
+- Runtime: Container Image (.NET 9)
+- Architecture: x86_64
+- Memory: 512 MB
+- Timeout: 900 seconds (15 minutes)
+
+**Documentation**: See [DEPLOYMENT.md](../../DEPLOYMENT.md)
 
 ### 2. Build and Publish Docker Images (`docker-publish.yml`)
 
@@ -109,6 +115,4 @@ Workflows run automatically based on their configured triggers (push, PR, tags).
 
 ## More Information
 
-- [GITHUB_ACTIONS_WORKFLOW.md](../../GITHUB_ACTIONS_WORKFLOW.md) - Detailed workflow guide
-- [DEPLOYMENT_AWS.md](../../DEPLOYMENT_AWS.md) - AWS deployment guide
-- [AWS_DEPLOYMENT_SUMMARY.md](../../AWS_DEPLOYMENT_SUMMARY.md) - Deployment overview
+- [DEPLOYMENT.md](../../DEPLOYMENT.md) - AWS Lambda deployment guide
