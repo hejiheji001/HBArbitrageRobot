@@ -115,11 +115,14 @@ jobs:
           # Create execution role if it doesn't exist
           ROLE_NAME="${{ env.FUNCTION_NAME }}-role"
           
-          if aws iam get-role --role-name $ROLE_NAME 2>/dev/null; then
+          # Check if role exists
+          if aws iam get-role --role-name $ROLE_NAME --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
             echo "IAM role already exists"
           else
             echo "Creating IAM role..."
-            aws iam create-role \
+            
+            # Try to create role, but don't fail if it already exists
+            CREATE_ROLE_OUTPUT=$(aws iam create-role \
               --role-name $ROLE_NAME \
               --assume-role-policy-document '{
                 "Version": "2012-10-17",
@@ -128,12 +131,19 @@ jobs:
                   "Principal": {"Service": "lambda.amazonaws.com"},
                   "Action": "sts:AssumeRole"
                 }]
-              }'
+              }' 2>&1) || {
+              if echo "$CREATE_ROLE_OUTPUT" | grep -q "EntityAlreadyExists"; then
+                echo "IAM role was created by another process, continuing..."
+              else
+                echo "Error creating IAM role: $CREATE_ROLE_OUTPUT"
+                exit 1
+              fi
+            }
             
-            # Attach basic execution policy
+            # Attach basic execution policy (idempotent operation)
             aws iam attach-role-policy \
               --role-name $ROLE_NAME \
-              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>/dev/null || true
             
             # Wait for role to be available
             echo "Waiting for IAM role to be ready..."
