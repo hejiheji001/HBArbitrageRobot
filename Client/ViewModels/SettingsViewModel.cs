@@ -174,6 +174,7 @@ public class SettingsViewModel : ViewModelBase
         {
             _logger.LogInfo("User requested to share logs");
             
+#if ANDROID
             if (OperatingSystem.IsAndroid())
             {
                 await Task.Run(() =>
@@ -202,6 +203,7 @@ public class SettingsViewModel : ViewModelBase
                 });
             }
             else
+#endif
             {
                 // On desktop, save to desktop or documents folder
                 var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);

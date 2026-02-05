@@ -14,7 +14,7 @@ public class LoggingService
     private static LoggingService? _instance;
     private static readonly object _lock = new object();
     private readonly string _logDirectory;
-    private readonly string _currentLogFile;
+    private readonly string _currentLogFile = string.Empty;
     private readonly long _maxLogFileSize = 5 * 1024 * 1024; // 5MB
     private readonly int _maxLogFiles = 5;
     private readonly object _fileLock = new object();
