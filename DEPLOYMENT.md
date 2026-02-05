@@ -31,7 +31,7 @@ For a simple Lambda deployment, **the direct GitHub Actions approach is simpler 
 
 The workflow uses Docker container images, which:
 - ✅ Uses your existing Dockerfile (no code changes needed)
-- ✅ Works with .NET 9 (current version)
+- ✅ Works with .NET 10 (current version)
 - ✅ Automatically handles all dependencies
 - ✅ Easier to test locally with Docker
 
@@ -73,7 +73,7 @@ The Lambda function is configured with:
 
 - **Function Name:** `HBArbitrageServer`
 - **Region:** `ap-northeast-1` (Tokyo)
-- **Runtime:** Container Image (.NET 9)
+- **Runtime:** Container Image (.NET 10)
 - **Architecture:** x86_64
 - **Memory:** 512 MB
 - **Timeout:** 900 seconds (15 minutes)
@@ -83,9 +83,9 @@ The Lambda function is configured with:
 
 ### About .NET Version
 
-The project currently uses **.NET 9** (latest stable version). While there are forward-compatibility notes in the code for .NET 10, the current deployment uses .NET 9.
+The project currently uses **.NET 10** (latest stable version).
 
-Since we're using **container image deployment**, you can upgrade to any .NET version by simply updating the Dockerfile base images (`mcr.microsoft.com/dotnet/sdk:9.0` and `mcr.microsoft.com/dotnet/aspnet:9.0`). The container approach allows using any .NET version without depending on AWS Lambda managed runtimes.
+Since we're using **container image deployment**, you can upgrade to any .NET version by simply updating the Dockerfile base images (`mcr.microsoft.com/dotnet/sdk:10.0` and `mcr.microsoft.com/dotnet/aspnet:10.0`). The container approach allows using any .NET version without depending on AWS Lambda managed runtimes.
 
 ## Accessing the Server
 

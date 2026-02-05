@@ -27,7 +27,7 @@ This directory contains automated workflows for HBArbitrageRobot.
 **Lambda Configuration**:
 - Function Name: `HBArbitrageServer`
 - Region: `ap-northeast-1` (Tokyo)
-- Runtime: Container Image (.NET 9)
+- Runtime: Container Image (.NET 10)
 - Architecture: x86_64
 - Memory: 512 MB
 - Timeout: 900 seconds (15 minutes)
