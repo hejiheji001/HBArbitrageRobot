@@ -297,7 +297,23 @@ adb install path\to\your.apk
 
 ### App Crashes
 
-**View crash logs:**
+The app now includes **built-in crash logging** that automatically captures errors!
+
+**Method 1: View logs within the app (Easiest)**
+
+1. Open the HBArbitrageRobot app
+2. Navigate to the **Settings** tab
+3. Click **View Logs** to see recent application logs
+4. Click **Share Logs** to export logs to the app's external files directory
+5. The exported file location will be shown in the app (typically in Android/data/com.hbarbitragerobot.client/files/)
+
+**Log File Locations:**
+- **On Android (internal logs)**: `/data/data/com.hbarbitragerobot.client/files/logs/app_YYYYMMDD.log`
+- **On Android (exported logs)**: `/sdcard/Android/data/com.hbarbitragerobot.client/files/HBArbitrageRobot_logs.txt`
+- **On Windows**: `%USERPROFILE%\Documents\HBArbitrageRobot\logs\app_YYYYMMDD.log`
+- **On Desktop (exported)**: `Desktop\HBArbitrageRobot_logs_YYYYMMDD_HHMMSS.txt`
+
+**Method 2: View crash logs via ADB:**
 ```powershell
 # See all error logs
 adb logcat *:E
@@ -309,6 +325,28 @@ adb logcat | Select-String "HBArbitrageRobot"
 adb logcat -c
 adb logcat
 ```
+
+**Method 3: Pull log files from device:**
+```powershell
+# Pull exported log file (accessible without root)
+adb pull /sdcard/Android/data/com.hbarbitragerobot.client/files/HBArbitrageRobot_logs.txt ./app-logs.txt
+
+# Or pull from app's private directory (requires debuggable app)
+adb shell run-as com.hbarbitragerobot.client cat /data/data/com.hbarbitragerobot.client/files/logs/app_*.log > app-logs.txt
+```
+
+**What gets logged:**
+- Application startup and initialization
+- User actions and workflows
+- API calls and responses
+- Errors and exceptions with stack traces
+- Unhandled exceptions and crashes
+
+**Log Rotation:**
+- Logs are automatically rotated when they reach 5MB
+- Up to 5 log files are kept (approximately 25MB total)
+- Oldest logs are automatically deleted
+
 
 ### Can't Connect to Server API
 

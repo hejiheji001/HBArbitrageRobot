@@ -12,10 +12,16 @@ internal class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
+        // Setup global exception handlers
+        SetupGlobalExceptionHandlers();
+        
         if (!OperatingSystem.IsAndroid())
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
         }
+
+        // Initialize logging service
+        var logger = LoggingService.Instance;
 
         // Check environment for development mode
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
@@ -24,10 +30,14 @@ internal class Program
         // Always show console output if in development mode
         if (isDevelopment)
         {
-            Console.WriteLine("=== HBArbitrageRobot - Development Mode ===");
-            Console.WriteLine($"Environment: {environment}");
-            Console.WriteLine($"Args: {string.Join(" ", args)}");
-            Console.WriteLine();
+            logger.LogInfo("=== HBArbitrageRobot - Development Mode ===");
+            logger.LogInfo($"Environment: {environment}");
+            logger.LogInfo($"Args: {string.Join(" ", args)}");
+            logger.LogInfo("");
+        }
+        else
+        {
+            logger.LogInfo($"Application started - Environment: {environment}");
         }
         
         // Check if CLI mode is requested
@@ -271,5 +281,26 @@ internal class Program
             .WithInterFont()
             .UseReactiveUI()
             .LogToTrace();
+    }
+
+    private static void SetupGlobalExceptionHandlers()
+    {
+        // Handle unhandled exceptions on desktop platforms
+        if (!OperatingSystem.IsAndroid())
+        {
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+            {
+                var exception = args.ExceptionObject as Exception;
+                var logger = LoggingService.Instance;
+                logger.LogError("Unhandled exception occurred", exception);
+            };
+
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                var logger = LoggingService.Instance;
+                logger.LogError("Unobserved task exception", args.Exception);
+                args.SetObserved(); // Prevent the app from crashing
+            };
+        }
     }
 }
