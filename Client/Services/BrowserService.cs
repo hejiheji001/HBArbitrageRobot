@@ -164,7 +164,12 @@ public class BrowserService
         Console.WriteLine("\nPlaywright browsers are not installed.");
         Console.Write("Would you like to install Playwright browsers now? (Y/N): ");
 
+#if ANDROID
+        // Console.ReadLine() is not supported on Android
+        var response = "Y";
+#else
         var response = Console.ReadLine()?.Trim().ToUpperInvariant();
+#endif
 
         if (response == "Y" || response == "YES")
         {
