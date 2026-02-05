@@ -144,11 +144,18 @@ jobs:
             ATTACH_OUTPUT=$(aws iam attach-role-policy \
               --role-name $ROLE_NAME \
               --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>&1) || {
-              # Only ignore error if policy is already attached
-              if echo "$ATTACH_OUTPUT" | grep -qE "PolicyAlreadyAttached|NoSuchEntity"; then
-                echo "Policy already attached or role not yet ready, continuing..."
+              # Handle specific error cases
+              if echo "$ATTACH_OUTPUT" | grep -q "PolicyAlreadyAttached"; then
+                echo "Policy already attached, continuing..."
+              elif echo "$ATTACH_OUTPUT" | grep -q "NoSuchEntity"; then
+                echo "Role not yet available, waiting and retrying..."
+                sleep 5
+                aws iam attach-role-policy \
+                  --role-name $ROLE_NAME \
+                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
               else
-                echo "Warning: Failed to attach policy: $ATTACH_OUTPUT"
+                echo "Error: Failed to attach policy: $ATTACH_OUTPUT"
+                exit 1
               fi
             }
             
