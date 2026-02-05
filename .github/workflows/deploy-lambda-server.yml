@@ -116,7 +116,7 @@ jobs:
           ROLE_NAME="${{ env.FUNCTION_NAME }}-role"
           
           # Check if role exists
-          if aws iam get-role --role-name $ROLE_NAME --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+          if aws iam get-role --role-name $ROLE_NAME >/dev/null 2>&1; then
             echo "IAM role already exists"
           else
             echo "Creating IAM role..."
@@ -141,9 +141,16 @@ jobs:
             }
             
             # Attach basic execution policy (idempotent operation)
-            aws iam attach-role-policy \
+            ATTACH_OUTPUT=$(aws iam attach-role-policy \
               --role-name $ROLE_NAME \
-              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>/dev/null || true
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>&1) || {
+              # Only ignore error if policy is already attached
+              if echo "$ATTACH_OUTPUT" | grep -qE "PolicyAlreadyAttached|NoSuchEntity"; then
+                echo "Policy already attached or role not yet ready, continuing..."
+              else
+                echo "Warning: Failed to attach policy: $ATTACH_OUTPUT"
+              fi
+            }
             
             # Wait for role to be available
             echo "Waiting for IAM role to be ready..."
