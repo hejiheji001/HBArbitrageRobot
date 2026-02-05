@@ -1,0 +1,237 @@
+name: Deploy Server to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'Server/**'
+      - '.github/workflows/deploy-lambda-server.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-1
+  FUNCTION_NAME: HBArbitrageServer
+  ECR_REPOSITORY: hbarbitrageserver
+
+jobs:
+  deploy:
+    name: Build and Deploy Server to Lambda
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Ensure ECR Repository Exists
+        id: ecr-repo
+        run: |
+          # Check if ECR repository exists, create if not
+          if aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "ECR repository already exists"
+          else
+            echo "Creating ECR repository..."
+            aws ecr create-repository \
+              --repository-name ${{ env.ECR_REPOSITORY }} \
+              --image-scanning-configuration scanOnPush=true \
+              --region ${{ env.AWS_REGION }}
+            
+            # Set lifecycle policy to keep only last 10 images
+            aws ecr put-lifecycle-policy \
+              --repository-name ${{ env.ECR_REPOSITORY }} \
+              --lifecycle-policy-text '{
+                "rules": [{
+                  "rulePriority": 1,
+                  "description": "Keep last 10 images",
+                  "selection": {
+                    "tagStatus": "any",
+                    "countType": "imageCountMoreThan",
+                    "countNumber": 10
+                  },
+                  "action": {
+                    "type": "expire"
+                  }
+                }]
+              }' \
+              --region ${{ env.AWS_REGION }}
+          fi
+          
+          # Get repository URI
+          REPO_URI=$(aws ecr describe-repositories \
+            --repository-names ${{ env.ECR_REPOSITORY }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
+          echo "repository_uri=$REPO_URI" >> $GITHUB_OUTPUT
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr-repo.outputs.repository_uri }}:latest
+            ${{ steps.ecr-repo.outputs.repository_uri }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Ensure Lambda Function Exists
+        id: lambda-check
+        run: |
+          # Check if Lambda function exists
+          if aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Lambda function exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Lambda function does not exist - will provide creation instructions"
+          fi
+      
+      - name: Create Lambda Function (if not exists)
+        if: steps.lambda-check.outputs.exists == 'false'
+        run: |
+          echo "Creating Lambda function..."
+          
+          # Create execution role if it doesn't exist
+          ROLE_NAME="${{ env.FUNCTION_NAME }}-role"
+          
+          if aws iam get-role --role-name $ROLE_NAME 2>/dev/null; then
+            echo "IAM role already exists"
+          else
+            echo "Creating IAM role..."
+            aws iam create-role \
+              --role-name $ROLE_NAME \
+              --assume-role-policy-document '{
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {"Service": "lambda.amazonaws.com"},
+                  "Action": "sts:AssumeRole"
+                }]
+              }'
+            
+            # Attach basic execution policy
+            aws iam attach-role-policy \
+              --role-name $ROLE_NAME \
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            
+            # Wait for role to be available
+            echo "Waiting for IAM role to be ready..."
+            sleep 10
+          fi
+          
+          # Get role ARN
+          ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME --query 'Role.Arn' --output text)
+          
+          # Create Lambda function
+          aws lambda create-function \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --package-type Image \
+            --code ImageUri=${{ steps.ecr-repo.outputs.repository_uri }}:latest \
+            --role $ROLE_ARN \
+            --architectures x86_64 \
+            --timeout 900 \
+            --memory-size 512 \
+            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080}" \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "Lambda function created successfully!"
+          
+          # Create Function URL with no auth
+          aws lambda create-function-url-config \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --auth-type NONE \
+            --cors "AllowOrigins=*,AllowMethods=GET,AllowMethods=POST,AllowHeaders=*,MaxAge=3600" \
+            --region ${{ env.AWS_REGION }}
+          
+          # Add permission for Function URL
+          aws lambda add-permission \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --statement-id FunctionURLAllowPublicAccess \
+            --action lambda:InvokeFunctionUrl \
+            --principal "*" \
+            --function-url-auth-type NONE \
+            --region ${{ env.AWS_REGION }} || true
+      
+      - name: Update Lambda Function Code
+        if: steps.lambda-check.outputs.exists == 'true'
+        run: |
+          echo "Updating Lambda function code..."
+          aws lambda update-function-code \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --image-uri ${{ steps.ecr-repo.outputs.repository_uri }}:latest \
+            --region ${{ env.AWS_REGION }}
+          
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "Lambda function updated successfully!"
+      
+      - name: Get Lambda Function URL
+        id: function-url
+        run: |
+          # Get function URL
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'FunctionUrl' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "⚠️  No Function URL configured"
+          else
+            echo "✅ Function URL: $FUNCTION_URL"
+            echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Deployment Summary
+        run: |
+          echo "## ✅ Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully deployed Server to AWS Lambda" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Lambda Function Details:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Function Name:** \`${{ env.FUNCTION_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** \`${{ env.AWS_REGION }}\` (Tokyo)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Runtime:** Container (.NET 9)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture:** x86_64" >> $GITHUB_STEP_SUMMARY
+          echo "- **Memory:** 512 MB" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timeout:** 900 seconds (15 minutes)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ steps.function-url.outputs.function_url }}" ]; then
+            echo "### 🌐 Access:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Function URL:** ${{ steps.function-url.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Test the endpoint:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "curl ${{ steps.function-url.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Container Image:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** ${{ steps.ecr-repo.outputs.repository_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`latest\` and \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
