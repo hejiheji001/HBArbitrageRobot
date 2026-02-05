@@ -141,18 +141,22 @@ jobs:
             }
             
             # Attach basic execution policy (idempotent operation)
+            POLICY_ARN="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
             ATTACH_OUTPUT=$(aws iam attach-role-policy \
               --role-name $ROLE_NAME \
-              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>&1) || {
+              --policy-arn $POLICY_ARN 2>&1) || {
               # Handle specific error cases
               if echo "$ATTACH_OUTPUT" | grep -q "PolicyAlreadyAttached"; then
                 echo "Policy already attached, continuing..."
               elif echo "$ATTACH_OUTPUT" | grep -q "NoSuchEntity"; then
                 echo "Role not yet available, waiting and retrying..."
                 sleep 5
-                aws iam attach-role-policy \
+                if ! aws iam attach-role-policy \
                   --role-name $ROLE_NAME \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+                  --policy-arn $POLICY_ARN 2>&1; then
+                  echo "Error: Failed to attach policy after retry"
+                  exit 1
+                fi
               else
                 echo "Error: Failed to attach policy: $ATTACH_OUTPUT"
                 exit 1
