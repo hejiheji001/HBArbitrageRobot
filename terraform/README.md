@@ -48,11 +48,13 @@ The Terraform configuration creates:
    aws configure
    ```
    
+   Use region: `ap-northeast-1` (Tokyo, Asia Pacific - recommended)
+   
    Or set environment variables:
    ```bash
    export AWS_ACCESS_KEY_ID="your_access_key"
    export AWS_SECRET_ACCESS_KEY="your_secret_key"
-   export AWS_DEFAULT_REGION="us-east-1"
+   export AWS_DEFAULT_REGION="ap-northeast-1"
    ```
 
 3. **Docker**: For building and pushing images
@@ -72,7 +74,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 Edit `terraform.tfvars` with your settings:
 ```hcl
-aws_region   = "us-east-1"
+aws_region   = "ap-northeast-1"  # Tokyo region (Asia Pacific)
 project_name = "hbarbitrage"
 
 touker_username             = "your_username"
@@ -85,14 +87,70 @@ max_investment = "1000"
 
 **IMPORTANT**: Never commit `terraform.tfvars` to version control!
 
-### 2. Initialize Terraform
+## Deployment Methods
+
+There are three ways to deploy:
+
+### Method 1: GitHub Actions (Recommended)
+
+The easiest and most automated approach using GitHub Actions workflow.
+
+#### Setup GitHub Secrets
+
+Go to your GitHub repository → Settings → Secrets and variables → Actions, and add:
+
+- `AWS_ACCESS_KEY_ID` - Your AWS access key
+- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
+- `TOUKER_USERNAME` - Your touker.com username
+- `TOUKER_PASSWORD` - Your touker.com password
+- `TOUKER_TRANSACTION_PASSWORD` - Your transaction password
+
+#### Deploy Automatically
+
+Push changes to the main branch:
+```bash
+git add .
+git commit -m "Deploy infrastructure"
+git push origin main
+```
+
+The workflow will automatically:
+1. Run Terraform to create/update infrastructure
+2. Build Docker images
+3. Push images to ECR
+4. Update Lambda functions
+
+#### Manual Trigger
+
+Alternatively, trigger manually from GitHub:
+1. Go to Actions tab
+2. Select "Deploy to AWS with Terraform" workflow
+3. Click "Run workflow"
+4. Choose action (plan/apply/destroy)
+
+### Method 2: Automated Script
+
+Use the provided deployment script for automated deployment:
+
+```bash
+cd terraform
+./deploy.sh
+```
+
+The script will handle all steps including infrastructure creation, Docker builds, and Lambda updates.
+
+### Method 3: Manual Deployment
+
+For full control over each step:
+
+#### 1. Initialize Terraform
 
 ```bash
 cd terraform
 terraform init
 ```
 
-### 3. Review Infrastructure Plan
+#### 2. Review Infrastructure Plan
 
 ```bash
 terraform plan
@@ -100,7 +158,7 @@ terraform plan
 
 This shows what resources will be created.
 
-### 4. Create Infrastructure
+#### 3. Create Infrastructure
 
 ```bash
 terraform apply
@@ -110,32 +168,32 @@ Type `yes` to confirm.
 
 After completion, note the outputs:
 ```
-ecr_server_repository_url = "123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-server"
-ecr_client_repository_url = "123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-client"
-server_api_url           = "https://abc123.lambda-url.us-east-1.on.aws/"
+ecr_server_repository_url = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-server"
+ecr_client_repository_url = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-client"
+server_api_url           = "https://abc123.lambda-url.ap-northeast-1.on.aws/"
 ```
 
-### 5. Build and Push Docker Images
+#### 4. Build and Push Docker Images
 
 ```bash
 # Navigate to project root
 cd ..
 
 # Get ECR login token
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com
 
 # Build and push Server image
 docker build -t hbarbitrage-server:latest -f Server/Dockerfile .
-docker tag hbarbitrage-server:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-server:latest
-docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-server:latest
+docker tag hbarbitrage-server:latest 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-server:latest
+docker push 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-server:latest
 
 # Build and push Client image
 docker build -t hbarbitrage-client:latest -f Client/Dockerfile .
-docker tag hbarbitrage-client:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-client:latest
-docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-client:latest
+docker tag hbarbitrage-client:latest 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-client:latest
+docker push 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-client:latest
 ```
 
-### 6. Update Lambda Functions
+#### 5. Update Lambda Functions
 
 After pushing images, update Lambda functions to use the new images:
 
@@ -145,18 +203,18 @@ cd terraform
 # Update Lambda functions to use latest images
 aws lambda update-function-code \
   --function-name hbarbitrage-server \
-  --image-uri 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-server:latest
+  --image-uri 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-server:latest
 
 aws lambda update-function-code \
   --function-name hbarbitrage-client \
-  --image-uri 123456789012.dkr.ecr.us-east-1.amazonaws.com/hbarbitrage-client:latest
+  --image-uri 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/hbarbitrage-client:latest
 ```
 
-### 7. Test Deployment
+#### 6. Test Deployment
 
 Test the Server API:
 ```bash
-curl https://abc123.lambda-url.us-east-1.on.aws/api/data
+curl https://abc123.lambda-url.ap-northeast-1.on.aws/api/data
 ```
 
 Test manual invocation:
@@ -251,7 +309,7 @@ enable_api_auth = true
 Then access the API with AWS Signature V4:
 ```bash
 aws lambda invoke-url \
-  --url https://abc123.lambda-url.us-east-1.on.aws/api/data \
+  --url https://abc123.lambda-url.ap-northeast-1.on.aws/api/data \
   --output response.json
 ```
 

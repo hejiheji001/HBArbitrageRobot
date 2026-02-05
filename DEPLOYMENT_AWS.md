@@ -52,7 +52,7 @@ The AWS serverless deployment uses:
 │  └────────┬────────┘       └─────────────────┘            │
 │           │                                                 │
 │           │ Lambda Function URL                             │
-│           │ (https://xxx.lambda-url.us-east-1.on.aws/)    │
+│           │ (https://xxx.lambda-url.ap-northeast-1.on.aws/)    │
 │           │                                                 │
 │  ┌────────▼────────┐       ┌─────────────────┐            │
 │  │ CloudWatch Logs │       │ ECR Repositories │            │
@@ -123,14 +123,14 @@ aws configure
 Enter:
 - AWS Access Key ID
 - AWS Secret Access Key
-- Default region (e.g., us-east-1)
+- Default region: ap-northeast-1 (Tokyo, Asia Pacific) - recommended for lower latency
 - Default output format: json
 
 Option B: Environment variables
 ```bash
 export AWS_ACCESS_KEY_ID="your_access_key"
 export AWS_SECRET_ACCESS_KEY="your_secret_key"
-export AWS_DEFAULT_REGION="us-east-1"
+export AWS_DEFAULT_REGION="ap-northeast-1"
 ```
 
 ### 4. Create IAM User (if needed)
@@ -162,7 +162,7 @@ cp terraform.tfvars.example terraform.tfvars
 Edit `terraform.tfvars`:
 ```hcl
 # AWS Configuration
-aws_region   = "us-east-1"  # Choose your region
+aws_region   = "ap-northeast-1"  # Tokyo region (Asia Pacific) - recommended
 project_name = "hbarbitrage"
 
 # Docker Image Tag
@@ -193,10 +193,62 @@ tags = {
 
 **⚠️ IMPORTANT**: Never commit `terraform.tfvars` to version control!
 
-### Step 3: Deploy with Automated Script
+### Step 3: Automated Deployment with GitHub Actions (Recommended)
+
+The easiest way to deploy is using the GitHub Actions workflow that automates the entire process.
+
+#### 3.1. Configure GitHub Secrets
+
+Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+Required secrets:
+- `AWS_ACCESS_KEY_ID` - Your AWS access key
+- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
+- `TOUKER_USERNAME` - Your touker.com username
+- `TOUKER_PASSWORD` - Your touker.com password
+- `TOUKER_TRANSACTION_PASSWORD` - Your transaction password
+
+#### 3.2. Trigger Deployment
+
+**Option A: Automatic deployment** (when you push changes to main branch)
+```bash
+git add .
+git commit -m "Update configuration"
+git push origin main
+```
+
+The workflow will automatically:
+1. ✓ Run Terraform to create/update AWS infrastructure
+2. ✓ Build Docker images for Server and Client
+3. ✓ Push images to Amazon ECR
+4. ✓ Update Lambda functions with new images
+5. ✓ Test the deployment
+
+**Option B: Manual deployment** (using GitHub Actions UI)
+1. Go to your repository on GitHub
+2. Click "Actions" tab
+3. Select "Deploy to AWS with Terraform" workflow
+4. Click "Run workflow" button
+5. Choose action: `plan`, `apply`, or `destroy`
+6. Click "Run workflow"
+
+#### 3.3. Monitor Deployment
+
+View the deployment progress in the Actions tab. The workflow will show:
+- Terraform plan/apply output
+- Docker build progress
+- Lambda update status
+- API endpoint URL
+
+### Step 4: Manual Deployment (Alternative)
+
+If you prefer local deployment, use the provided script or manual Terraform commands.
+
+#### Option A: Automated Script
 
 Use the provided deployment script for easy deployment:
 ```bash
+cd terraform
 ./deploy.sh
 ```
 
@@ -210,7 +262,7 @@ The script will:
 7. ✓ Update Lambda functions
 8. ✓ Test deployment
 
-### Step 4: Manual Deployment (Alternative)
+#### Option B: Manual Terraform Commands
 
 If you prefer manual control:
 
@@ -240,7 +292,7 @@ echo "Client ECR: $CLIENT_ECR"
 
 #### 4.5. Login to ECR
 ```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(echo $SERVER_ECR | cut -d'/' -f1)
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $(echo $SERVER_ECR | cut -d'/' -f1)
 ```
 
 #### 4.6. Build and Push Images
@@ -414,12 +466,14 @@ aws cloudwatch put-metric-alarm \
   --threshold 1 \
   --comparison-operator GreaterThanThreshold \
   --dimensions Name=FunctionName,Value=hbarbitrage-client \
-  --alarm-actions arn:aws:sns:us-east-1:123456789012:my-topic
+  --alarm-actions arn:aws:sns:ap-northeast-1:123456789012:my-topic
 ```
 
 ## Cost Analysis
 
-### Pricing (us-east-1 region)
+### Pricing (ap-northeast-1 region)
+
+**Note**: Pricing for ap-northeast-1 (Tokyo) is similar to us-east-1, with minor regional variations.
 
 **Lambda**:
 - Requests: $0.20 per 1M requests
