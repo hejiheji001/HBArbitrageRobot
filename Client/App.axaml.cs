@@ -22,6 +22,14 @@ public partial class App : Avalonia.Application
                 DataContext = new MainWindowViewModel(),
             };
         }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+        {
+            // For mobile platforms (Android/iOS), use UserControl instead of Window
+            singleViewPlatform.MainView = new MainView
+            {
+                DataContext = new MainWindowViewModel(),
+            };
+        }
 
         base.OnFrameworkInitializationCompleted();
     }

@@ -109,6 +109,25 @@ public class ExecutionViewModel : ViewModelBase
     {
         if (IsExecuting) return;
 
+        // Check if running on Android - browser automation is not supported on Android
+        if (OperatingSystem.IsAndroid())
+        {
+            AddLog("=== Android Platform Detected ===");
+            AddLog("");
+            AddLog("Browser automation (Playwright) is not supported on Android.");
+            AddLog("The Android app is designed for monitoring and user management only.");
+            AddLog("");
+            AddLog("To execute arbitrage trades, please:");
+            AddLog("1. Deploy the Server and Client to AWS Lambda (see DEPLOYMENT_AWS.md)");
+            AddLog("2. Use this Android app to monitor execution status");
+            AddLog("3. Or run the desktop version of this app on Windows/Linux/Mac");
+            AddLog("");
+            AddLog("For more information, see:");
+            AddLog("- DEPLOYMENT_ANDROID.md");
+            AddLog("- DEPLOYMENT_AWS.md");
+            return;
+        }
+
         IsExecuting = true;
         
         // Clear log messages on UI thread - same pattern as AddLog for consistency
