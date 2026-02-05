@@ -189,7 +189,7 @@ jobs:
           aws lambda create-function-url-config \
             --function-name ${{ env.FUNCTION_NAME }} \
             --auth-type NONE \
-            --cors "AllowOrigins=*,AllowMethods=GET,AllowMethods=POST,AllowHeaders=*,MaxAge=3600" \
+            --cors "AllowOrigins=*,AllowMethods=GET,POST,AllowHeaders=*,MaxAge=3600" \
             --region ${{ env.AWS_REGION }}
           
           # Add permission for Function URL
@@ -234,7 +234,7 @@ jobs:
             aws lambda create-function-url-config \
               --function-name ${{ env.FUNCTION_NAME }} \
               --auth-type NONE \
-              --cors "AllowOrigins=*,AllowMethods=GET,AllowMethods=POST,AllowHeaders=*,MaxAge=3600" \
+              --cors "AllowOrigins=*,AllowMethods=GET,POST,AllowHeaders=*,MaxAge=3600" \
               --region ${{ env.AWS_REGION }}
             
             # Add permission for Function URL
