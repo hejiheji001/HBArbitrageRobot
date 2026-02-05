@@ -109,8 +109,7 @@ public class ApiClientService
             // Build authorization header
             var authorizationHeader = $"AWS4-HMAC-SHA256 Credential={immutableCredentials.AccessKey}/{credentialScope}, SignedHeaders={signedHeaders}, Signature={signature}";
             
-            // Add all headers to request
-            request.Headers.Clear();
+            // Add authentication headers to request (don't clear existing headers)
             request.Headers.TryAddWithoutValidation("Authorization", authorizationHeader);
             request.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
             request.Headers.TryAddWithoutValidation("x-amz-content-sha256", contentHash);
@@ -154,7 +153,8 @@ public class ApiClientService
             {
                 // Extract region from AWS Lambda URL if present
                 // Format: https://xxx.lambda-url.{region}.on.aws/
-                var region = "ap-northeast-1"; // Default region
+                // Default region can be overridden via AWS_REGION environment variable
+                var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
                 var uri = new Uri(baseUrl);
                 if (uri.Host.Contains("lambda-url"))
                 {
