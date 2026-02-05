@@ -12,7 +12,10 @@ internal class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        if (!OperatingSystem.IsAndroid())
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+        }
 
         // Check environment for development mode
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
