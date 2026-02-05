@@ -18,7 +18,8 @@ This directory contains automated workflows for HBArbitrageRobot.
 3. Pushes image to Amazon ECR
 4. Creates Lambda function (if needed) with all required configuration
 5. Updates Lambda function code (if already exists)
-6. Displays Function URL for accessing the API
+6. Configures Function URL (if not already configured)
+7. Displays Function URL for accessing the API
 
 **Required Secrets**:
 - `AWS_ACCESS_KEY_ID` - Your AWS access key
