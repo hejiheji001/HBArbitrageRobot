@@ -143,7 +143,6 @@ internal class Program
         var schedulingService = new SchedulingService();
         var orchestrator = new WorkflowOrchestrator(
             config,
-            apiClient,
             browserService,
             authService,
             arbitrageService
@@ -257,9 +256,17 @@ internal class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+    {
+        var builder = AppBuilder.Configure<App>();
+        
+#if !ANDROID
+        // UsePlatformDetect is only available for desktop platforms
+        builder = builder.UsePlatformDetect();
+#endif
+        
+        return builder
             .WithInterFont()
             .UseReactiveUI()
             .LogToTrace();
+    }
 }
