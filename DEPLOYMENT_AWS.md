@@ -363,9 +363,11 @@ The Lambda Function URL is configured with IAM authentication for security. When
 **Client Requirements for AWS Lambda:**
 - AWS credentials must be available in the environment where the Client runs
 - Credentials can be provided via:
-  - Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+  - Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (optional)
   - AWS credentials file: `~/.aws/credentials`
   - IAM role (when running in AWS Lambda or EC2)
+- Optional: Set `AWS_REGION` environment variable to override the default region (ap-northeast-1)
+  - If not set, the region is auto-detected from the Lambda URL or defaults to ap-northeast-1
 
 **For localhost development:**
 - No AWS credentials needed
