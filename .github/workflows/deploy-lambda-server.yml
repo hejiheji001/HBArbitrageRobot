@@ -217,6 +217,40 @@ jobs:
           
           echo "Lambda function updated successfully!"
       
+      - name: Configure Function URL (if not exists)
+        if: steps.lambda-check.outputs.exists == 'true'
+        run: |
+          # Check if Function URL already exists
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'FunctionUrl' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Function URL does not exist, creating..."
+            
+            # Create Function URL with no auth
+            aws lambda create-function-url-config \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --auth-type NONE \
+              --cors "AllowOrigins=*,AllowMethods=GET POST,AllowHeaders=*,MaxAge=3600" \
+              --region ${{ env.AWS_REGION }}
+            
+            # Add permission for Function URL
+            aws lambda add-permission \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --statement-id FunctionURLAllowPublicAccess \
+              --action lambda:InvokeFunctionUrl \
+              --principal "*" \
+              --function-url-auth-type NONE \
+              --region ${{ env.AWS_REGION }} || true
+            
+            echo "✅ Function URL created successfully!"
+          else
+            echo "✅ Function URL already exists: $FUNCTION_URL"
+          fi
+      
       - name: Get Lambda Function URL
         id: function-url
         run: |
