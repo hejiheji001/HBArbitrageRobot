@@ -83,7 +83,7 @@ The workflow creates everything for you:
 
 1. **ECR Repository** - `hbarbitrageserver` in Tokyo region
 2. **Lambda Function** - `HBArbitrageServer` with:
-   - .NET 9 container runtime
+   - .NET 10 container runtime
    - 512 MB memory
    - 15-minute timeout
    - x86_64 architecture

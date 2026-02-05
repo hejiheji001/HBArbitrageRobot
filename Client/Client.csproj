@@ -3,14 +3,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <!-- Include Android target only when building with Android support -->
-    <TargetFrameworks Condition="'$(BuildForAndroid)' == 'true'">net9.0;net9.0-android</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildForAndroid)' != 'true'">net9.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BuildForAndroid)' == 'true'">net10.0;net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BuildForAndroid)' != 'true'">net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
-    <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
 
   <!-- Desktop runtime identifiers (when not building for Android) -->
@@ -24,12 +23,12 @@
   </PropertyGroup>
 
   <!-- Desktop-specific properties -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
 
   <!-- Android-specific properties -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
     <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
     <ApplicationId>com.hbarbitragerobot.client</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
@@ -53,12 +52,12 @@
   </ItemGroup>
 
   <!-- Desktop-only packages -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
   </ItemGroup>
 
   <!-- Android-only packages -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
     <PackageReference Include="Avalonia.Android" Version="11.3.11" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" Version="2.1.10" />
   </ItemGroup>
@@ -68,12 +67,12 @@
   </ItemGroup>
 
   <!-- Exclude Android-specific files when not building for Android -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net9.0-android'">
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-android'">
     <Compile Remove="MainActivity.cs" />
   </ItemGroup>
 
   <!-- Android Resources -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
     <AndroidResource Include="Resources\**\*" />
   </ItemGroup>
 

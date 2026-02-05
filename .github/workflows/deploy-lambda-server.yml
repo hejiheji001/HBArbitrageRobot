@@ -215,7 +215,7 @@ jobs:
           echo "### Lambda Function Details:" >> $GITHUB_STEP_SUMMARY
           echo "- **Function Name:** \`${{ env.FUNCTION_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** \`${{ env.AWS_REGION }}\` (Tokyo)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Runtime:** Container (.NET 9)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Runtime:** Container (.NET 10)" >> $GITHUB_STEP_SUMMARY
           echo "- **Architecture:** x86_64" >> $GITHUB_STEP_SUMMARY
           echo "- **Memory:** 512 MB" >> $GITHUB_STEP_SUMMARY
           echo "- **Timeout:** 900 seconds (15 minutes)" >> $GITHUB_STEP_SUMMARY
