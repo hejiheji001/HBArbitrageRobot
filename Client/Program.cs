@@ -1,6 +1,6 @@
 using Avalonia;
 using Client.Services;
-using Avalonia.ReactiveUI;
+using ReactiveUI.Avalonia;
 
 namespace Client;
 
