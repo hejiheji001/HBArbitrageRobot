@@ -282,7 +282,7 @@ Expected responses:
 
 ### Workflow Fails: "Lambda Update Failed"
 
-**Cause**: Lambda function doesn't exist or image too large
+**Cause**: Lambda function doesn't exist, image too large, or unsupported image format
 
 **Solution**:
 1. Ensure Terraform apply completed successfully
@@ -291,6 +291,10 @@ Expected responses:
    aws lambda get-function --function-name hbarbitrage-server --region ap-northeast-1
    ```
 3. Check image size (Lambda limit: 10 GB)
+4. If error mentions "image manifest, config or layer media type not supported":
+   - The workflow is configured to build Docker v2 format images (required by Lambda)
+   - Ensure you're using the latest workflow version with `provenance: false` and `oci-mediatypes=false` settings
+   - Re-run the workflow to rebuild with correct image format
 
 ### API Returns 502/504
 

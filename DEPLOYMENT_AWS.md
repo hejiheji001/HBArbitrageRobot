@@ -553,6 +553,23 @@ Total: ~$0.63/month
    memory_size = 2048  # MB
    ```
 
+### Issue: Invalid Image Media Type
+
+**Symptoms**: "InvalidParameterValueException: The image manifest, config or layer media type for the source image is not supported"
+**Solution**:
+This occurs when Docker images are built in OCI format instead of Docker v2 schema format. Lambda requires Docker Image Manifest V2, Schema 2.
+
+1. Ensure the GitHub Actions workflow (`.github/workflows/deploy-lambda-server.yml`) includes:
+   ```yaml
+   provenance: false
+   outputs: type=image,name=...,push=true,oci-mediatypes=false
+   ```
+2. If building locally with Docker Buildx, use:
+   ```bash
+   docker buildx build --output type=image,oci-mediatypes=false ...
+   ```
+3. The fix is already applied in the latest workflow version.
+
 ### Issue: Image Pull Error
 
 **Symptoms**: "RepositoryNotFoundException" or pull errors
