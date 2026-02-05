@@ -290,15 +290,15 @@ public partial class DataFetchService(
                     // Apply multiplier based on unit
                     if (unit == "万")
                     {
-                        return number * 10000m; // 1万 = 10,000 yuan
+                        return number * 10000m; // 1万 = 10,000 CNY
                     }
                     else if (unit == "千")
                     {
-                        return number * 1000m; // 1千 = 1,000 yuan
+                        return number * 1000m; // 1千 = 1,000 CNY
                     }
                     else
                     {
-                        // No unit or empty string means the number is in yuan (e.g., "限10" = 10 yuan)
+                        // No unit or empty string means the number is in CNY (e.g., "限10" = 10 CNY)
                         return number;
                     }
                 }

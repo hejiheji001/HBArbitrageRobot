@@ -19,7 +19,7 @@ public class UserManagementViewModel : ViewModelBase
     public UserManagementViewModel(CredentialStorageService credentialStorage)
     {
         _credentialStorage = credentialStorage;
-        Users = new ObservableCollection<UserCredential>();
+        Users = new ObservableCollection<UserCredential>(_credentialStorage.GetAllUsers());
         
         AddUserCommand = ReactiveCommand.Create(AddUser);
         EditUserCommand = ReactiveCommand.Create<UserCredential>(EditUser);
@@ -27,7 +27,7 @@ public class UserManagementViewModel : ViewModelBase
         SaveUserCommand = ReactiveCommand.Create(SaveUser);
         CancelEditCommand = ReactiveCommand.Create(CancelEdit);
         ToggleEnabledCommand = ReactiveCommand.Create<UserCredential>(ToggleEnabled);
-        
+        IsEditMode = true;
         RefreshUsers();
     }
 
@@ -81,16 +81,24 @@ public class UserManagementViewModel : ViewModelBase
     {
         // Fetch data first (may be synchronous I/O but typically fast from local storage)
         var users = _credentialStorage.GetAllUsers();
-        
-        // Update UI collection on UI thread
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
-            Users.Clear();
-            foreach (var user in users)
-            {
-                Users.Add(user);
-            }
-        });
+            UpdateUsers(users);
+            return;
+        }
+
+        // Update UI collection on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdateUsers(users));
+    }
+
+    private void UpdateUsers(IEnumerable<UserCredential> users)
+    {
+        Users.Clear();
+        foreach (var user in users)
+        {
+            Users.Add(user);
+        }
     }
 
     private void AddUser()

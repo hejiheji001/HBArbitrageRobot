@@ -41,7 +41,7 @@ variable "purchase_time" {
 }
 
 variable "max_investment" {
-  description = "Maximum investment per stock holder per fund (in yuan)"
+  description = "Maximum investment per stock holder per fund (in CNY)"
   type        = string
   default     = "1000"
 }

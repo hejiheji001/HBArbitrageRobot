@@ -20,7 +20,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Total (yuan)" Binding="{Binding TotalInvestment, StringFormat={}{0:N2}}" Width="150"/>
+                <DataGridTextColumn Header="Total (CNY)" Binding="{Binding TotalInvestment, StringFormat={}{0:N2}}" Width="150"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

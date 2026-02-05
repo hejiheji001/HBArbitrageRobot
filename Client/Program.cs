@@ -12,6 +12,8 @@ internal class Program
     [STAThread]
     public static async Task<int> Main(string[] args)
     {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+
         // Check environment for development mode
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
         var isDevelopment = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);

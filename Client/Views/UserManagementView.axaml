@@ -11,10 +11,8 @@
         <Grid Grid.Row="1" ColumnDefinitions="2*,*">
             <!-- User List -->
             <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,10,0">
-                <Grid RowDefinitions="Auto,*">
-                    <Button Grid.Row="0" Content="➕ Add User" Command="{Binding AddUserCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-                    
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}"
+                <Grid RowDefinitions="*">
+                    <DataGrid Grid.Row="0" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}"
                               AutoGenerateColumns="False" IsReadOnly="True">
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding IsEnabled}" Width="80"/>
@@ -47,7 +45,7 @@
             </Border>
 
             <!-- Edit Form -->
-            <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10" IsVisible="{Binding IsEditMode}">
+            <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10">
                 <StackPanel Spacing="10">
                     <TextBlock Text="{Binding SelectedUser, Converter={x:Static converters:ObjectConverters.IsNull}}" 
                                FontSize="16" FontWeight="Bold"/>

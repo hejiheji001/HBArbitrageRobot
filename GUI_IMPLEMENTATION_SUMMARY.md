@@ -338,7 +338,7 @@ Repeat for multiple users.
 Navigate to "▶️ Execute" tab:
 - API URL: `http://localhost:5000` (or AWS Lambda URL)
 - Purchase Time: `14:15`
-- Max Investment: `1000` (yuan)
+- Max Investment: `1000` (CNY)
 
 ### 4. Run Arbitrage
 
