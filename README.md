@@ -37,8 +37,9 @@ This application supports multiple deployment strategies:
 2. **AWS Serverless (Cloud)**: Deploy to AWS Lambda with scheduled execution
    - Quick Start: [QUICKSTART_AWS.md](QUICKSTART_AWS.md) - 5-minute deployment guide
    - Detailed Guide: [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) - Complete documentation
+   - **GitHub Actions**: [GITHUB_ACTIONS_WORKFLOW.md](GITHUB_ACTIONS_WORKFLOW.md) - Automated deployment workflow
    - Best for: Cost-effective serverless operation during trading hours only
-   - Runs at 14:00 Shanghai time (Mon-Fri)
+   - Runs at 14:00 Shanghai time (Mon-Fri) in **ap-northeast-1** (Tokyo, Asia)
    - Cost: ~$0.80/month
 
 3. **Android Client**: Multiple options for mobile devices

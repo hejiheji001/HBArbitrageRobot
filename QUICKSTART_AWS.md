@@ -1,25 +1,46 @@
 # Quick Start Guide for AWS Serverless Deployment
 
-This is a quick reference for deploying HBArbitrageRobot to AWS Lambda. For detailed instructions, see [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md).
+This is a quick reference for deploying HBArbitrageRobot to AWS Lambda in **ap-northeast-1** (Tokyo, Asia Pacific). For detailed instructions, see [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md).
 
 ## Prerequisites Checklist
 
 - [ ] AWS Account created
-- [ ] AWS CLI installed and configured
-- [ ] Terraform installed (v1.0+)
-- [ ] Docker installed
+- [ ] AWS CLI installed and configured (region: ap-northeast-1)
+- [ ] Terraform installed (v1.0+) - OR use GitHub Actions
+- [ ] Docker installed - OR use GitHub Actions
 - [ ] Touker.com credentials ready
 
-## 5-Minute Deployment
+## Deployment Options
 
-### 1. Configure
+### Option 1: GitHub Actions (Recommended - Easiest)
+
+**Zero setup required** - Deploy directly from GitHub!
+
+1. **Configure GitHub Secrets** (Settings → Secrets → Actions):
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `TOUKER_USERNAME`
+   - `TOUKER_PASSWORD`
+   - `TOUKER_TRANSACTION_PASSWORD`
+
+2. **Trigger Deployment**:
+   - Push to main branch, OR
+   - Go to Actions → "Deploy to AWS with Terraform" → "Run workflow"
+
+3. **Done!** Check Actions tab for deployment status
+
+📖 **Full Guide**: [GITHUB_ACTIONS_WORKFLOW.md](GITHUB_ACTIONS_WORKFLOW.md)
+
+### Option 2: Local Deployment (5 Minutes)
+
+1. **Configure**:
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your credentials
 ```
 
-### 2. Deploy
+2. **Deploy**:
 ```bash
 ./deploy.sh
 ```
@@ -33,14 +54,15 @@ That's it! The script will:
 ### 3. Verify
 ```bash
 # Test Server API
-curl https://your-lambda-url.lambda-url.us-east-1.on.aws/api/data
+curl https://your-lambda-url.lambda-url.ap-northeast-1.on.aws/api/data
 
 # View logs
-aws logs tail /aws/lambda/hbarbitrage-server --follow
+aws logs tail /aws/lambda/hbarbitrage-server --follow --region ap-northeast-1
 ```
 
 ## What Gets Created
 
+- **Region**: ap-northeast-1 (Tokyo, Asia Pacific)
 - **2 Lambda Functions**: Server (512MB) + Client (1024MB)
 - **2 ECR Repositories**: For Docker images
 - **2 EventBridge Rules**: Scheduled execution (Mon-Fri 14:00 & 14:20 Shanghai time)
@@ -64,14 +86,14 @@ Approximately **$0.80/month** for:
 
 ```bash
 # View Server logs
-aws logs tail /aws/lambda/hbarbitrage-server --follow
+aws logs tail /aws/lambda/hbarbitrage-server --follow --region ap-northeast-1
 
 # View Client logs
-aws logs tail /aws/lambda/hbarbitrage-client --follow
+aws logs tail /aws/lambda/hbarbitrage-client --follow --region ap-northeast-1
 
 # Manual invocation (for testing)
-aws lambda invoke --function-name hbarbitrage-server output.json
-aws lambda invoke --function-name hbarbitrage-client output.json
+aws lambda invoke --function-name hbarbitrage-server --region ap-northeast-1 output.json
+aws lambda invoke --function-name hbarbitrage-client --region ap-northeast-1 output.json
 ```
 
 ## Updating
@@ -95,6 +117,7 @@ terraform destroy
 
 ## Need Help?
 
+- **GitHub Actions Workflow**: [GITHUB_ACTIONS_WORKFLOW.md](GITHUB_ACTIONS_WORKFLOW.md)
 - **Detailed Guide**: [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md)
 - **Android Setup**: [DEPLOYMENT_ANDROID.md](DEPLOYMENT_ANDROID.md)
 - **Terraform Docs**: [terraform/README.md](terraform/README.md)
