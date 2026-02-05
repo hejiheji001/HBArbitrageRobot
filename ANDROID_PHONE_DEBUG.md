@@ -304,13 +304,14 @@ The app now includes **built-in crash logging** that automatically captures erro
 1. Open the HBArbitrageRobot app
 2. Navigate to the **Settings** tab
 3. Click **View Logs** to see recent application logs
-4. Click **Share Logs** to export logs to your Download folder
-5. The exported file will be: `/sdcard/Download/HBArbitrageRobot_logs.txt`
+4. Click **Share Logs** to export logs to the app's external files directory
+5. The exported file location will be shown in the app (typically in Android/data/com.hbarbitragerobot.client/files/)
 
 **Log File Locations:**
-- **On Android**: `/data/data/com.hbarbitragerobot.client/files/logs/app_YYYYMMDD.log`
+- **On Android (internal logs)**: `/data/data/com.hbarbitragerobot.client/files/logs/app_YYYYMMDD.log`
+- **On Android (exported logs)**: `/sdcard/Android/data/com.hbarbitragerobot.client/files/HBArbitrageRobot_logs.txt`
 - **On Windows**: `%USERPROFILE%\Documents\HBArbitrageRobot\logs\app_YYYYMMDD.log`
-- **Exported logs**: `/sdcard/Download/HBArbitrageRobot_logs.txt` (when using Share Logs)
+- **On Desktop (exported)**: `Desktop\HBArbitrageRobot_logs_YYYYMMDD_HHMMSS.txt`
 
 **Method 2: View crash logs via ADB:**
 ```powershell
@@ -327,10 +328,10 @@ adb logcat
 
 **Method 3: Pull log files from device:**
 ```powershell
-# Pull app log files from Android device
-adb pull /sdcard/Download/HBArbitrageRobot_logs.txt ./app-logs.txt
+# Pull exported log file (accessible without root)
+adb pull /sdcard/Android/data/com.hbarbitragerobot.client/files/HBArbitrageRobot_logs.txt ./app-logs.txt
 
-# Or pull from app's private directory (requires root or debuggable app)
+# Or pull from app's private directory (requires debuggable app)
 adb shell run-as com.hbarbitragerobot.client cat /data/data/com.hbarbitragerobot.client/files/logs/app_*.log > app-logs.txt
 ```
 

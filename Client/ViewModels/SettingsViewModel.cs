@@ -178,14 +178,15 @@ public class SettingsViewModel : ViewModelBase
             {
                 await Task.Run(() =>
                 {
-                    // Export logs to a temporary file in external storage
-                    var externalPath = Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath;
-                    if (externalPath != null)
+                    // Use app's external files directory (no permissions needed on Android 10+)
+                    var context = Android.App.Application.Context;
+                    var extFilesDir = context.GetExternalFilesDir(null);
+                    if (extFilesDir != null)
                     {
-                        var exportPath = Path.Combine(externalPath, "Download", "HBArbitrageRobot_logs.txt");
+                        var exportPath = Path.Combine(extFilesDir.AbsolutePath, "HBArbitrageRobot_logs.txt");
                         if (_logger.ExportLogs(exportPath))
                         {
-                            LogStatusMessage = $"Logs exported to: {exportPath}";
+                            LogStatusMessage = $"Logs exported successfully!\nLocation: {exportPath}";
                             _logger.LogInfo($"Logs exported to: {exportPath}");
                         }
                         else
@@ -195,26 +196,8 @@ public class SettingsViewModel : ViewModelBase
                     }
                     else
                     {
-                        // Alternative: save to app's external files directory
-                        var context = Android.App.Application.Context;
-                        var extFilesDir = context.GetExternalFilesDir(null);
-                        if (extFilesDir != null)
-                        {
-                            var exportPath = Path.Combine(extFilesDir.AbsolutePath, "HBArbitrageRobot_logs.txt");
-                            if (_logger.ExportLogs(exportPath))
-                            {
-                                LogStatusMessage = $"Logs exported to: {exportPath}";
-                                _logger.LogInfo($"Logs exported to: {exportPath}");
-                            }
-                            else
-                            {
-                                LogStatusMessage = "Failed to export logs";
-                            }
-                        }
-                        else
-                        {
-                            LogStatusMessage = "Cannot access external storage";
-                        }
+                        LogStatusMessage = "Cannot access external storage";
+                        _logger.LogError("External storage not available");
                     }
                 });
             }
