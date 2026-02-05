@@ -122,14 +122,7 @@ jobs:
             echo "Creating IAM role..."
             
             # Define trust policy document
-            TRUST_POLICY='{
-              "Version": "2012-10-17",
-              "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "lambda.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-              }]
-            }'
+            TRUST_POLICY='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
             
             # Try to create role, but don't fail if it already exists
             CREATE_ROLE_OUTPUT=$(aws iam create-role \
