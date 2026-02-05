@@ -26,7 +26,7 @@ A .NET 10 application with Server and Client components for automated arbitrage 
 
 - **Docker Support**: Fully containerized with Docker and Docker Compose
 - **CI/CD**: Automated Docker image building and publishing via GitHub Actions
-- **AWS Serverless**: Deploy to AWS Lambda with Terraform for scheduled execution
+- **AWS Lambda**: Deploy Server to AWS Lambda with simple GitHub Actions workflow
 - **Mobile Support**: Multiple options for Android deployment
 
 ## Deployment Options
@@ -37,13 +37,13 @@ This application supports multiple deployment strategies:
    - See [Docker Deployment](#docker-deployment) section below
    - Best for: 24/7 operation, full control, existing infrastructure
 
-2. **AWS Serverless (Cloud)**: Deploy to AWS Lambda with scheduled execution
-   - Quick Start: [QUICKSTART_AWS.md](QUICKSTART_AWS.md) - 5-minute deployment guide
-   - Detailed Guide: [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) - Complete documentation
-   - **GitHub Actions**: [GITHUB_ACTIONS_WORKFLOW.md](GITHUB_ACTIONS_WORKFLOW.md) - Automated deployment workflow
-   - Best for: Cost-effective serverless operation during trading hours only
-   - Runs at 14:00 Shanghai time (Mon-Fri) in **ap-northeast-1** (Tokyo, Asia)
-   - Cost: ~$0.80/month
+2. **AWS Lambda (Cloud)**: Deploy Server to AWS Lambda
+   - See [DEPLOYMENT.md](DEPLOYMENT.md) - Complete deployment guide
+   - **Simple GitHub Actions workflow** - No Terraform needed
+   - Automatically creates/updates Lambda function
+   - Best for: Cost-effective serverless operation with on-demand execution
+   - Region: **ap-northeast-1** (Tokyo, Asia)
+   - Cost: Minimal (AWS Lambda free tier covers most usage)
 
 3. **Android Client**: Multiple options for mobile devices
    - See [DEPLOYMENT_ANDROID.md](DEPLOYMENT_ANDROID.md) for detailed guide
@@ -53,7 +53,7 @@ This application supports multiple deployment strategies:
    - **Debugging**: Debug on physical Android phone - see [ANDROID_PHONE_DEBUG.md](ANDROID_PHONE_DEBUG.md)
    - **New**: Built-in crash logging and log collection - see [LOG_COLLECTION_GUIDE.md](LOG_COLLECTION_GUIDE.md)
 
-**Recommendation**: For most users, deploy Server to **AWS Lambda** (serverless, scheduled) and use Android device for **monitoring** only. This provides the best cost-to-reliability ratio.
+**Recommendation**: For most users, deploy Server to **AWS Lambda** (serverless, on-demand) and use Android device or Client for executing arbitrage operations. This provides the best cost-to-reliability ratio.
 
 ## Requirements
 
@@ -79,14 +79,10 @@ HBArbitrageRobot/
 ├── Client/                 # Playwright Client
 │   ├── Models/            # Data Models
 │   └── Dockerfile         # Client Docker image
-├── terraform/              # AWS Lambda deployment
-│   ├── main.tf            # Infrastructure configuration
-│   ├── variables.tf       # Configurable variables
-│   ├── outputs.tf         # Deployment outputs
-│   ├── deploy.sh          # Automated deployment script
-│   └── README.md          # Terraform guide
+├── .github/workflows/      # GitHub Actions workflows
+│   └── deploy-lambda-server.yml  # AWS Lambda deployment
 ├── docker-compose.yml      # Docker Compose configuration
-├── DEPLOYMENT_AWS.md       # AWS serverless deployment guide
+├── DEPLOYMENT.md           # AWS Lambda deployment guide
 ├── DEPLOYMENT_ANDROID.md   # Android client deployment guide
 └── README.md
 ```
