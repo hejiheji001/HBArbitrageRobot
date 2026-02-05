@@ -26,10 +26,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=publish /app/publish .
 
-# Expose port
+# Expose port (Lambda uses 8080 by default)
 EXPOSE 8080
 
 # Set environment variables
 ENV ASPNETCORE_URLS=http://+:8080
 
+# Lambda will run the application through the runtime interface
 ENTRYPOINT ["dotnet", "Server.dll"]
