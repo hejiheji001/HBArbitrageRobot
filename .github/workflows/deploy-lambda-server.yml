@@ -250,6 +250,20 @@ jobs:
             echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
           fi
       
+      - name: Store Function URL in SSM Parameter Store
+        if: steps.function-url.outputs.function_url != ''
+        run: |
+          # Store Lambda function URL in SSM Parameter Store for client retrieval
+          aws ssm put-parameter \
+            --name "/hbarbitrage/lambda/server-url" \
+            --type "String" \
+            --value "${{ steps.function-url.outputs.function_url }}" \
+            --description "HBArbitrageRobot Lambda Server Function URL" \
+            --overwrite \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ Function URL stored in SSM Parameter Store: /hbarbitrage/lambda/server-url"
+      
       - name: Deployment Summary
         run: |
           echo "## ✅ Deployment Summary" >> $GITHUB_STEP_SUMMARY

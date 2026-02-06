@@ -1,3 +1,6 @@
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+
 namespace Client.Services;
 
 /// <summary>
@@ -20,7 +23,19 @@ public class ConfigurationService
     {
         Username = GetConfig(args, "USERNAME", 0);
         Password = GetConfig(args, "PASSWORD", 1);
-        ApiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
+        
+        // Get API URL from config, or retrieve from SSM if not provided
+        var apiUrlConfig = GetConfig(args, "API_URL", 2, "");
+        if (string.IsNullOrEmpty(apiUrlConfig))
+        {
+            // Try to retrieve from AWS SSM Parameter Store
+            ApiUrl = GetApiUrlFromSSM().GetAwaiter().GetResult();
+        }
+        else
+        {
+            ApiUrl = apiUrlConfig;
+        }
+        
         PurchaseTime = GetConfig(args, "PURCHASE_TIME", 3, "14:15");
         Headless = bool.Parse(GetConfig(args, "HEADLESS", 5, "true"));
 
@@ -44,6 +59,35 @@ public class ConfigurationService
         catch (Exception ex)
         {
             Console.WriteLine($"Warning: Failed to parse RETRY_DELAY_SECONDS, using default of 60 seconds. Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Retrieve Lambda function URL from AWS SSM Parameter Store
+    /// </summary>
+    private static async Task<string> GetApiUrlFromSSM()
+    {
+        try
+        {
+            var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
+            using var ssmClient = new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+            
+            var request = new GetParameterRequest
+            {
+                Name = "/hbarbitrage/lambda/server-url"
+            };
+            
+            var response = await ssmClient.GetParameterAsync(request);
+            var url = response.Parameter.Value;
+            
+            Console.WriteLine($"✅ Retrieved Lambda function URL from SSM: {url}");
+            return url;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Failed to retrieve Lambda function URL from SSM: {ex.Message}");
+            Console.WriteLine("Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
         }
     }
 
