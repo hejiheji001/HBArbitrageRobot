@@ -14,6 +14,8 @@ env:
   AWS_REGION: ap-northeast-1
   FUNCTION_NAME: HBArbitrageServer
   ECR_REPOSITORY: hbarbitrageserver
+  API_NAME: HBArbitrageServerApi
+  API_STAGE: prod
 
 jobs:
   deploy:
@@ -180,15 +182,15 @@ jobs:
             --architectures x86_64 \
             --timeout 900 \
             --memory-size 512 \
-            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080}" \
+            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${{ secrets.API_TOKEN }}}" \
             --region ${{ env.AWS_REGION }}
           
           echo "Lambda function created successfully!"
           
-          # Create Function URL with IAM auth
+          # Create Function URL with no auth (app-level token)
           aws lambda create-function-url-config \
             --function-name ${{ env.FUNCTION_NAME }} \
-            --auth-type AWS_IAM \
+            --auth-type NONE \
             --cors "AllowOrigins=*,AllowMethods=GET,POST,AllowHeaders=*,MaxAge=3600" \
             --region ${{ env.AWS_REGION }}
       
@@ -208,6 +210,15 @@ jobs:
           
           echo "Lambda function updated successfully!"
       
+      - name: Update Lambda Function Configuration
+        if: steps.lambda-check.outputs.exists == 'true'
+        run: |
+          echo "Updating Lambda function configuration..."
+          aws lambda update-function-configuration \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${{ secrets.API_TOKEN }}}" \
+            --region ${{ env.AWS_REGION }}
+      
       - name: Configure Function URL (if not exists)
         if: steps.lambda-check.outputs.exists == 'true'
         run: |
@@ -221,48 +232,140 @@ jobs:
           if [ -z "$FUNCTION_URL" ]; then
             echo "Function URL does not exist, creating..."
             
-            # Create Function URL with IAM auth
+            # Create Function URL with no auth (app-level token)
             aws lambda create-function-url-config \
               --function-name ${{ env.FUNCTION_NAME }} \
-              --auth-type AWS_IAM \
+              --auth-type NONE \
               --cors "AllowOrigins=*,AllowMethods=GET,POST,AllowHeaders=*,MaxAge=3600" \
               --region ${{ env.AWS_REGION }}
             
             echo "✅ Function URL created successfully!"
           else
-            echo "✅ Function URL already exists: $FUNCTION_URL"
+            echo "Function URL already exists: $FUNCTION_URL"
+            echo "Updating Function URL config to no auth..."
+            aws lambda update-function-url-config \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --auth-type NONE \
+              --cors "AllowOrigins=*,AllowMethods=GET,POST,AllowHeaders=*,MaxAge=3600" \
+              --region ${{ env.AWS_REGION }}
           fi
       
-      - name: Get Lambda Function URL
-        id: function-url
+      - name: Configure API Gateway HTTP API
+        id: api-gateway
         run: |
-          # Get function URL
-          FUNCTION_URL=$(aws lambda get-function-url-config \
+          set -euo pipefail
+
+          echo "Ensuring HTTP API exists..."
+          API_ID=$(aws apigatewayv2 get-apis \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[?Name=='${{ env.API_NAME }}'].ApiId | [0]" \
+            --output text)
+
+          if [ -z "$API_ID" ] || [ "$API_ID" = "None" ]; then
+            API_ID=$(aws apigatewayv2 create-api \
+              --name ${{ env.API_NAME }} \
+              --protocol-type HTTP \
+              --cors-configuration "AllowOrigins=*,AllowMethods=GET,POST,OPTIONS,AllowHeaders=*,MaxAge=3600" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'ApiId' \
+              --output text)
+            echo "Created API Gateway: $API_ID"
+          else
+            echo "API Gateway already exists: $API_ID"
+          fi
+
+          LAMBDA_ARN=$(aws lambda get-function \
             --function-name ${{ env.FUNCTION_NAME }} \
             --region ${{ env.AWS_REGION }} \
-            --query 'FunctionUrl' \
-            --output text 2>/dev/null || echo "")
-          
-          if [ -z "$FUNCTION_URL" ]; then
-            echo "⚠️  No Function URL configured"
+            --query 'Configuration.FunctionArn' \
+            --output text)
+
+          INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
+            --api-id $API_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[?IntegrationUri=='$LAMBDA_ARN'].IntegrationId | [0]" \
+            --output text)
+
+          if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+            INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+              --api-id $API_ID \
+              --integration-type AWS_PROXY \
+              --integration-uri $LAMBDA_ARN \
+              --payload-format-version 2.0 \
+              --region ${{ env.AWS_REGION }} \
+              --query 'IntegrationId' \
+              --output text)
+            echo "Created integration: $INTEGRATION_ID"
           else
-            echo "✅ Function URL: $FUNCTION_URL"
-            echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
+            echo "Integration already exists: $INTEGRATION_ID"
           fi
-      
-      - name: Store Function URL in SSM Parameter Store
-        if: steps.function-url.outputs.function_url != ''
-        run: |
-          # Store Lambda function URL in SSM Parameter Store for client retrieval
-          aws ssm put-parameter \
-            --name "/hbarbitrage/lambda/server-url" \
-            --type "String" \
-            --value "${{ steps.function-url.outputs.function_url }}" \
-            --description "HBArbitrageRobot Lambda Server Function URL" \
-            --overwrite \
-            --region ${{ env.AWS_REGION }}
-          
-          echo "✅ Function URL stored in SSM Parameter Store: /hbarbitrage/lambda/server-url"
+
+          ROUTE_ID=$(aws apigatewayv2 get-routes \
+            --api-id $API_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[?RouteKey=='ANY /{proxy+}'].RouteId | [0]" \
+            --output text)
+
+          if [ -z "$ROUTE_ID" ] || [ "$ROUTE_ID" = "None" ]; then
+            aws apigatewayv2 create-route \
+              --api-id $API_ID \
+              --route-key "ANY /{proxy+}" \
+              --target "integrations/$INTEGRATION_ID" \
+              --region ${{ env.AWS_REGION }}
+            echo "Created route: ANY /{proxy+}"
+          else
+            echo "Route already exists: $ROUTE_ID"
+          fi
+
+          STAGE_NAME=${{ env.API_STAGE }}
+          STAGE_EXISTS=$(aws apigatewayv2 get-stages \
+            --api-id $API_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[?StageName=='$STAGE_NAME'].StageName | [0]" \
+            --output text)
+
+          if [ -z "$STAGE_EXISTS" ] || [ "$STAGE_EXISTS" = "None" ]; then
+            aws apigatewayv2 create-stage \
+              --api-id $API_ID \
+              --stage-name $STAGE_NAME \
+              --auto-deploy \
+              --region ${{ env.AWS_REGION }}
+            echo "Created stage: $STAGE_NAME"
+          else
+            aws apigatewayv2 update-stage \
+              --api-id $API_ID \
+              --stage-name $STAGE_NAME \
+              --auto-deploy \
+              --region ${{ env.AWS_REGION }}
+            echo "Updated stage: $STAGE_NAME"
+          fi
+
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          SOURCE_ARN="arn:aws:execute-api:${{ env.AWS_REGION }}:${ACCOUNT_ID}:${API_ID}/*/*/*"
+          STATEMENT_ID="${{ env.FUNCTION_NAME }}-apigw"
+
+          if aws lambda get-policy --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null | grep -q "$STATEMENT_ID"; then
+            echo "Lambda permission already exists: $STATEMENT_ID"
+          else
+            aws lambda add-permission \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --statement-id $STATEMENT_ID \
+              --action lambda:InvokeFunction \
+              --principal apigateway.amazonaws.com \
+              --source-arn "$SOURCE_ARN" \
+              --region ${{ env.AWS_REGION }}
+            echo "Added Lambda invoke permission for API Gateway"
+          fi
+
+          API_ENDPOINT=$(aws apigatewayv2 get-api \
+            --api-id $API_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query 'ApiEndpoint' \
+            --output text)
+
+          API_URL="$API_ENDPOINT/$STAGE_NAME"
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "✅ API Gateway URL: $API_URL"
       
       - name: Deployment Summary
         run: |
@@ -279,13 +382,13 @@ jobs:
           echo "- **Timeout:** 900 seconds (15 minutes)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -n "${{ steps.function-url.outputs.function_url }}" ]; then
+          if [ -n "${{ steps.api-gateway.outputs.api_url }}" ]; then
             echo "### 🌐 Access:" >> $GITHUB_STEP_SUMMARY
-            echo "- **Function URL:** ${{ steps.function-url.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **API Gateway URL:** ${{ steps.api-gateway.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Test the endpoint:" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-            echo "curl ${{ steps.function-url.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "curl ${{ steps.api-gateway.outputs.api_url }}/api/data" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
           

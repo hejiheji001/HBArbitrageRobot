@@ -2,6 +2,7 @@ using Server.Services;
 using Scalar.AspNetCore;
 using Polly;
 using Polly.Extensions.Http;
+using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -106,6 +107,26 @@ if (enableApiDocs)
 if (!app.Environment.IsProduction())
 {
     app.UseHttpsRedirection();
+}
+
+var apiToken = builder.Configuration["ApiToken"] ?? Environment.GetEnvironmentVariable("API_TOKEN");
+if (!string.IsNullOrWhiteSpace(apiToken))
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            if (!context.Request.Headers.TryGetValue("X-Api-Token", out var providedToken) ||
+                !string.Equals(providedToken.ToString(), apiToken, StringComparison.Ordinal))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsync("Unauthorized");
+                return;
+            }
+        }
+
+        await next();
+    });
 }
 
 app.MapControllers();

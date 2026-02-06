@@ -75,6 +75,7 @@ internal class Program
         // Initialize services
         var config = new ConfigurationService();
         config.LoadConfiguration(args);
+        PromptApiUrlSelection(config);
         var credentialStorage = new CredentialStorageService();
 
         // Check if username/password were provided via args or env
@@ -172,7 +173,7 @@ internal class Program
 
                 // Fetch LOF data from server
                 var apiUrl = await config.GetApiUrlAsync();
-                var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl);
+                var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl, config.ApiToken);
 
                 if (shouldWait || lofData == null || lofData.Count == 0)
                 {
@@ -217,6 +218,7 @@ internal class Program
                 var executionService = new MultiUserExecutionService(
                     credentialStorage,
                     apiUrl,
+                    config.ApiToken,
                     config.PurchaseTime,
                     config.MaxInvestmentPerHolder
                 );
@@ -267,6 +269,51 @@ internal class Program
         {
             Console.WriteLine($"Warning: Could not load existing users: {ex.Message}");
         }
+    }
+
+    private static void PromptApiUrlSelection(ConfigurationService config)
+    {
+        var defaultChoice = IsLocalhostUrl(config.ApiUrl) ? "L" : "R";
+
+        while (true)
+        {
+            Console.WriteLine("Select API URL:");
+            Console.WriteLine("  [L] Local (http://localhost:5000)");
+            Console.WriteLine("  [R] Remote (API_URL)");
+            Console.Write($"Enter choice (default {defaultChoice}): ");
+
+            var input = Console.ReadLine();
+            var choice = string.IsNullOrWhiteSpace(input) ? defaultChoice : input.Trim();
+
+            if (choice.StartsWith("L", StringComparison.OrdinalIgnoreCase))
+            {
+                config.SetApiUrlOverride("http://localhost:5000");
+                return;
+            }
+
+            if (choice.StartsWith("R", StringComparison.OrdinalIgnoreCase))
+            {
+                config.SetApiUrlOverride(string.Empty);
+                return;
+            }
+
+            Console.WriteLine("Invalid choice. Please enter L or R.");
+        }
+    }
+
+    private static bool IsLocalhostUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Host is "localhost" or "127.0.0.1" or "::1";
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

@@ -1,6 +1,7 @@
 using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Windows.Input;
 using Client.Models;
 using Client.Services;
@@ -10,6 +11,7 @@ namespace Client.ViewModels;
 public class ExecutionViewModel : ViewModelBase
 {
     private readonly CredentialStorageService _credentialStorage;
+    private readonly ConfigurationService _configurationService;
     private MultiUserExecutionService? _executionService;
     private ConsoleRedirectWriter? _consoleRedirectWriter;
     private ConsoleRedirectWriter? _consoleErrorRedirectWriter;
@@ -19,25 +21,25 @@ public class ExecutionViewModel : ViewModelBase
     private string _purchaseTime;
     private decimal _maxInvestment;
     private string _statusMessage = "Ready to execute";
+    private ApiUrlOption _selectedApiUrlOption;
 
     public ExecutionViewModel(CredentialStorageService credentialStorage)
     {
         _credentialStorage = credentialStorage;
-        
-        // Read configuration from environment variables (set by launchSettings.json)
-        _apiUrl = Environment.GetEnvironmentVariable("API_URL") ?? "http://localhost:5000";
-        _purchaseTime = Environment.GetEnvironmentVariable("PURCHASE_TIME") ?? "14:15";
-        
-        // Parse max investment with error handling
-        var maxInvestmentStr = Environment.GetEnvironmentVariable("MAX_INVESTMENT");
-        if (!string.IsNullOrEmpty(maxInvestmentStr) && decimal.TryParse(maxInvestmentStr, out var maxInv))
+        _configurationService = new ConfigurationService();
+        _configurationService.LoadConfiguration([]);
+
+        ApiUrlOptions = new List<ApiUrlOption>
         {
-            _maxInvestment = maxInv;
-        }
-        else
-        {
-            _maxInvestment = 1000m;
-        }
+            new("Local (http://localhost:5000)", "http://localhost:5000"),
+            new("Remote (API_URL)", string.Empty)
+        };
+
+        _apiUrl = _configurationService.ApiUrl ?? string.Empty;
+        _selectedApiUrlOption = ResolveApiUrlOption(_apiUrl);
+        _apiUrl = _selectedApiUrlOption.Value;
+        _purchaseTime = _configurationService.PurchaseTime;
+        _maxInvestment = _configurationService.MaxInvestmentPerHolder;
         
         LogMessages = new ObservableCollection<string>();
         SetupConsoleLogRedirection();
@@ -57,6 +59,18 @@ public class ExecutionViewModel : ViewModelBase
     {
         get => _apiUrl;
         set => this.RaiseAndSetIfChanged(ref _apiUrl, value);
+    }
+
+    public IReadOnlyList<ApiUrlOption> ApiUrlOptions { get; }
+
+    public ApiUrlOption SelectedApiUrlOption
+    {
+        get => _selectedApiUrlOption;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedApiUrlOption, value);
+            ApiUrl = value.Value;
+        }
     }
 
     public string PurchaseTime
@@ -144,9 +158,14 @@ public class ExecutionViewModel : ViewModelBase
 
         try
         {
+            _configurationService.SetApiUrlOverride(ApiUrl);
+            var apiUrl = await _configurationService.GetApiUrlAsync();
+            ApiUrl = apiUrl;
+
             _executionService = new MultiUserExecutionService(
                 _credentialStorage,
-                ApiUrl,
+                apiUrl,
+                _configurationService.ApiToken,
                 PurchaseTime,
                 MaxInvestment);
 
@@ -249,4 +268,31 @@ public class ExecutionViewModel : ViewModelBase
             LogMessages.RemoveAt(0);
         }
     }
+
+    private ApiUrlOption ResolveApiUrlOption(string? apiUrl)
+    {
+        if (IsLocalhostUrl(apiUrl))
+        {
+            return ApiUrlOptions[0];
+        }
+
+        return ApiUrlOptions[1];
+    }
+
+    private static bool IsLocalhostUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Host is "localhost" or "127.0.0.1" or "::1";
+    }
 }
+
+public record ApiUrlOption(string Name, string Value);

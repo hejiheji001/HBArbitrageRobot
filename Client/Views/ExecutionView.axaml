@@ -11,7 +11,15 @@
         <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
             <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="API URL:" Margin="0,0,10,5"/>
-                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding ApiUrl}" Margin="0,0,10,0"/>
+                <ComboBox Grid.Row="1" Grid.Column="0" Margin="0,0,10,0"
+                          ItemsSource="{Binding ApiUrlOptions}"
+                          SelectedItem="{Binding SelectedApiUrlOption}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Purchase Time:" Margin="0,0,10,5"/>
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PurchaseTime}" Margin="0,0,10,0"/>

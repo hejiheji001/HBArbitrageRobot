@@ -12,6 +12,7 @@ namespace Client.Services;
 public class MultiUserExecutionService(
     CredentialStorageService credentialStorage,
     string apiUrl,
+    string? apiToken,
     string purchaseTime,
     decimal maxInvestment)
 {
@@ -100,7 +101,7 @@ public class MultiUserExecutionService(
         try
         {
             Log("Fetching LOF data from API...");
-            var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl);
+            var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl, apiToken);
 
             if (shouldWait || lofData == null || lofData.Count == 0)
             {
