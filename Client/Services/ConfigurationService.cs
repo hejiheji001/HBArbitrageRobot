@@ -8,8 +8,11 @@ namespace Client.Services;
 /// </summary>
 public class ConfigurationService
 {
-    private static AmazonSimpleSystemsManagementClient? _ssmClient;
-    private static readonly object _ssmClientLock = new();
+    private static readonly Lazy<AmazonSimpleSystemsManagementClient> _ssmClient = new(() =>
+    {
+        var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
+        return new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+    });
     
     public string Username { get; private set; } = string.Empty;
     public string Password { get; private set; } = string.Empty;
@@ -82,32 +85,13 @@ public class ConfigurationService
     }
 
     /// <summary>
-    /// Get or create the SSM client singleton
-    /// </summary>
-    private static AmazonSimpleSystemsManagementClient GetSsmClient()
-    {
-        if (_ssmClient == null)
-        {
-            lock (_ssmClientLock)
-            {
-                if (_ssmClient == null)
-                {
-                    var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
-                    _ssmClient = new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
-                }
-            }
-        }
-        return _ssmClient;
-    }
-
-    /// <summary>
     /// Retrieve Lambda function URL from AWS SSM Parameter Store
     /// </summary>
     private static async Task<string> GetApiUrlFromSSM()
     {
         try
         {
-            var ssmClient = GetSsmClient();
+            var ssmClient = _ssmClient.Value;
             
             var request = new GetParameterRequest
             {
@@ -120,10 +104,31 @@ public class ConfigurationService
             Console.WriteLine($"✅ Retrieved Lambda function URL from SSM: {url}");
             return url;
         }
+        catch (ParameterNotFoundException)
+        {
+            Console.WriteLine($"⚠️  Lambda function URL not found in SSM Parameter Store.");
+            Console.WriteLine("   Make sure the Server has been deployed using GitHub Actions workflow.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
+        catch (Amazon.Runtime.AmazonServiceException ex) when (ex.ErrorCode == "AccessDeniedException")
+        {
+            Console.WriteLine($"⚠️  Access denied to SSM Parameter Store.");
+            Console.WriteLine("   Make sure your AWS credentials have 'ssm:GetParameter' permission.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
+        catch (Amazon.Runtime.AmazonClientException ex)
+        {
+            Console.WriteLine($"⚠️  AWS client error: {ex.Message}");
+            Console.WriteLine("   Make sure AWS credentials are configured correctly.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Failed to retrieve Lambda function URL from SSM: {ex.Message}");
-            Console.WriteLine("Using default URL: http://localhost:5000");
+            Console.WriteLine($"⚠️  Unexpected error retrieving Lambda function URL from SSM: {ex.Message}");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
             return "http://localhost:5000";
         }
     }
