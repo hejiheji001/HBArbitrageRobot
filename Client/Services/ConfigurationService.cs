@@ -8,6 +8,9 @@ namespace Client.Services;
 /// </summary>
 public class ConfigurationService
 {
+    private static AmazonSimpleSystemsManagementClient? _ssmClient;
+    private static readonly object _ssmClientLock = new();
+    
     public string Username { get; private set; } = string.Empty;
     public string Password { get; private set; } = string.Empty;
     public string ApiUrl { get; private set; } = "http://localhost:5000";
@@ -24,16 +27,17 @@ public class ConfigurationService
         Username = GetConfig(args, "USERNAME", 0);
         Password = GetConfig(args, "PASSWORD", 1);
         
-        // Get API URL from config, or retrieve from SSM if not provided
+        // Get API URL from config
         var apiUrlConfig = GetConfig(args, "API_URL", 2, "");
-        if (string.IsNullOrEmpty(apiUrlConfig))
+        if (!string.IsNullOrEmpty(apiUrlConfig))
         {
-            // Try to retrieve from AWS SSM Parameter Store
-            ApiUrl = GetApiUrlFromSSM().GetAwaiter().GetResult();
+            ApiUrl = apiUrlConfig;
         }
         else
         {
-            ApiUrl = apiUrlConfig;
+            // API URL will be retrieved from SSM on first use if needed
+            // This avoids blocking synchronous calls in LoadConfiguration
+            ApiUrl = string.Empty;
         }
         
         PurchaseTime = GetConfig(args, "PURCHASE_TIME", 3, "14:15");
@@ -63,14 +67,47 @@ public class ConfigurationService
     }
 
     /// <summary>
+    /// Get API URL, retrieving from SSM if not already configured
+    /// </summary>
+    public async Task<string> GetApiUrlAsync()
+    {
+        if (!string.IsNullOrEmpty(ApiUrl))
+        {
+            return ApiUrl;
+        }
+
+        // Retrieve from SSM if not configured
+        ApiUrl = await GetApiUrlFromSSM();
+        return ApiUrl;
+    }
+
+    /// <summary>
+    /// Get or create the SSM client singleton
+    /// </summary>
+    private static AmazonSimpleSystemsManagementClient GetSsmClient()
+    {
+        if (_ssmClient == null)
+        {
+            lock (_ssmClientLock)
+            {
+                if (_ssmClient == null)
+                {
+                    var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
+                    _ssmClient = new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+                }
+            }
+        }
+        return _ssmClient;
+    }
+
+    /// <summary>
     /// Retrieve Lambda function URL from AWS SSM Parameter Store
     /// </summary>
     private static async Task<string> GetApiUrlFromSSM()
     {
         try
         {
-            var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
-            using var ssmClient = new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+            var ssmClient = GetSsmClient();
             
             var request = new GetParameterRequest
             {
