@@ -1,3 +1,6 @@
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+
 namespace Client.Services;
 
 /// <summary>
@@ -5,6 +8,12 @@ namespace Client.Services;
 /// </summary>
 public class ConfigurationService
 {
+    private static readonly Lazy<AmazonSimpleSystemsManagementClient> _ssmClient = new(() =>
+    {
+        var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
+        return new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+    });
+    
     public string Username { get; private set; } = string.Empty;
     public string Password { get; private set; } = string.Empty;
     public string ApiUrl { get; private set; } = "http://localhost:5000";
@@ -20,7 +29,20 @@ public class ConfigurationService
     {
         Username = GetConfig(args, "USERNAME", 0);
         Password = GetConfig(args, "PASSWORD", 1);
-        ApiUrl = GetConfig(args, "API_URL", 2, "http://localhost:5000");
+        
+        // Get API URL from config
+        var apiUrlConfig = GetConfig(args, "API_URL", 2, "");
+        if (!string.IsNullOrEmpty(apiUrlConfig))
+        {
+            ApiUrl = apiUrlConfig;
+        }
+        else
+        {
+            // API URL will be retrieved from SSM on first use if needed
+            // This avoids blocking synchronous calls in LoadConfiguration
+            ApiUrl = string.Empty;
+        }
+        
         PurchaseTime = GetConfig(args, "PURCHASE_TIME", 3, "14:15");
         Headless = bool.Parse(GetConfig(args, "HEADLESS", 5, "true"));
 
@@ -44,6 +66,70 @@ public class ConfigurationService
         catch (Exception ex)
         {
             Console.WriteLine($"Warning: Failed to parse RETRY_DELAY_SECONDS, using default of 60 seconds. Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Get API URL, retrieving from SSM if not already configured
+    /// </summary>
+    public async Task<string> GetApiUrlAsync()
+    {
+        if (!string.IsNullOrEmpty(ApiUrl))
+        {
+            return ApiUrl;
+        }
+
+        // Retrieve from SSM if not configured
+        ApiUrl = await GetApiUrlFromSSM();
+        return ApiUrl;
+    }
+
+    /// <summary>
+    /// Retrieve Lambda function URL from AWS SSM Parameter Store
+    /// </summary>
+    private static async Task<string> GetApiUrlFromSSM()
+    {
+        try
+        {
+            var ssmClient = _ssmClient.Value;
+            
+            var request = new GetParameterRequest
+            {
+                Name = "/hbarbitrage/lambda/server-url"
+            };
+            
+            var response = await ssmClient.GetParameterAsync(request);
+            var url = response.Parameter.Value;
+            
+            Console.WriteLine($"✅ Retrieved Lambda function URL from SSM: {url}");
+            return url;
+        }
+        catch (ParameterNotFoundException)
+        {
+            Console.WriteLine($"⚠️  Lambda function URL not found in SSM Parameter Store.");
+            Console.WriteLine("   Make sure the Server has been deployed using GitHub Actions workflow.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
+        catch (Amazon.Runtime.AmazonServiceException ex) when (ex.ErrorCode == "AccessDeniedException")
+        {
+            Console.WriteLine($"⚠️  Access denied to SSM Parameter Store.");
+            Console.WriteLine("   Make sure your AWS credentials have 'ssm:GetParameter' permission.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
+        catch (Amazon.Runtime.AmazonClientException ex)
+        {
+            Console.WriteLine($"⚠️  AWS client error: {ex.Message}");
+            Console.WriteLine("   Make sure AWS credentials are configured correctly.");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Unexpected error retrieving Lambda function URL from SSM: {ex.Message}");
+            Console.WriteLine("   Using default URL: http://localhost:5000");
+            return "http://localhost:5000";
         }
     }
 

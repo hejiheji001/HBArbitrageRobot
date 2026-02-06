@@ -171,7 +171,8 @@ internal class Program
                 Console.WriteLine(new string('=', 80));
 
                 // Fetch LOF data from server
-                var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(config.ApiUrl);
+                var apiUrl = await config.GetApiUrlAsync();
+                var (lofData, shouldWait) = await ApiClientService.FetchLofDataFromApiAsync(apiUrl);
 
                 if (shouldWait || lofData == null || lofData.Count == 0)
                 {
@@ -212,9 +213,10 @@ internal class Program
                 Console.WriteLine(new string('=', 80));
 
                 // Create execution service for all enabled users
+                var apiUrl = await config.GetApiUrlAsync();
                 var executionService = new MultiUserExecutionService(
                     credentialStorage,
-                    config.ApiUrl,
+                    apiUrl,
                     config.PurchaseTime,
                     config.MaxInvestmentPerHolder
                 );

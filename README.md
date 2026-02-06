@@ -41,6 +41,8 @@ This application supports multiple deployment strategies:
    - See [DEPLOYMENT.md](DEPLOYMENT.md) - Complete deployment guide
    - **Simple GitHub Actions workflow** - No Terraform needed
    - Automatically creates/updates Lambda function
+   - **Automatic URL management** - Lambda function URL stored in AWS SSM Parameter Store
+   - See [LAMBDA_URL_CONFIG.md](LAMBDA_URL_CONFIG.md) - Lambda function URL configuration guide
    - Best for: Cost-effective serverless operation with on-demand execution
    - Region: **ap-northeast-1** (Tokyo, Asia)
    - Cost: Minimal (AWS Lambda free tier covers most usage)

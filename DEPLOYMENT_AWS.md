@@ -374,6 +374,49 @@ The Lambda Function URL is configured with IAM authentication for security. When
 - Client automatically detects localhost URLs and skips IAM signing
 - Use `http://localhost:5000` or `https://localhost:64743` for local testing
 
+### Lambda Function URL Configuration
+
+**Automatic URL Management:**
+
+The Lambda function URL is automatically stored in AWS Systems Manager (SSM) Parameter Store after each deployment. This ensures the Client can always retrieve the current URL even if it changes.
+
+**How it works:**
+1. When you deploy the Server using GitHub Actions, the workflow automatically stores the Lambda function URL in SSM Parameter Store at `/hbarbitrage/lambda/server-url`
+2. When the Client starts, it automatically retrieves this URL from SSM if `API_URL` environment variable is not set
+3. This means you don't need to manually update the Client configuration when the Lambda function URL changes
+
+**Required IAM Permissions for Client:**
+
+The Client requires the following SSM permissions to retrieve the Lambda function URL:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Resource": "arn:aws:ssm:*:*:parameter/hbarbitrage/lambda/server-url"
+    }
+  ]
+}
+```
+
+**Manual Override:**
+
+You can still manually set the API URL by providing the `API_URL` environment variable:
+```bash
+export API_URL="https://your-lambda-url.lambda-url.ap-northeast-1.on.aws/"
+```
+
+**Retrieving the URL manually:**
+
+If you need to retrieve the current Lambda function URL:
+```bash
+aws ssm get-parameter --name "/hbarbitrage/lambda/server-url" --query 'Parameter.Value' --output text --region ap-northeast-1
+```
+
 ### Modifying Schedule
 
 To change execution times, edit `terraform/main.tf`:
