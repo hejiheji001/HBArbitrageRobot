@@ -16,6 +16,7 @@ env:
   ECR_REPOSITORY: hbarbitrageserver
   API_NAME: HBArbitrageServerApi
   API_STAGE: prod
+  API_TOKEN: ${{ secrets.API_TOKEN }}
 
 jobs:
   deploy:
@@ -36,6 +37,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate API token secret
+        run: |
+          if [ -z "${API_TOKEN}" ]; then
+            echo "API_TOKEN secret is required for deployment. Set it in repository secrets."
+            exit 1
+          fi
       
       - name: Login to Amazon ECR
         id: login-ecr
@@ -182,7 +190,7 @@ jobs:
             --architectures x86_64 \
             --timeout 900 \
             --memory-size 512 \
-            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${{ secrets.API_TOKEN }}}" \
+            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${API_TOKEN}}" \
             --region ${{ env.AWS_REGION }}
           
           echo "Lambda function created successfully!"
@@ -216,7 +224,7 @@ jobs:
           echo "Updating Lambda function configuration..."
           aws lambda update-function-configuration \
             --function-name ${{ env.FUNCTION_NAME }} \
-            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${{ secrets.API_TOKEN }}}" \
+            --environment "Variables={ASPNETCORE_ENVIRONMENT=Production,ASPNETCORE_URLS=http://+:8080,API_TOKEN=${API_TOKEN}}" \
             --region ${{ env.AWS_REGION }}
       
       - name: Configure Function URL (if not exists)
