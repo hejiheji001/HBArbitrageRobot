@@ -142,7 +142,16 @@ jobs:
           fi
 
           # Find zipalign tool from Android SDK (use the latest version)
-          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" 2>/dev/null | sort -Vr | head -n 1)
+          # First try to get the latest stable version, fallback to any version if needed
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | \
+            grep -v '\-rc\|\-alpha\|\-beta' | sort -Vr | head -n 1)
+          
+          # If no stable version found, try any version
+          if [ -z "$ZIPALIGN" ]; then
+            ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | \
+              sort -Vr | head -n 1)
+          fi
+          
           if [ -z "$ZIPALIGN" ]; then
             echo "ERROR: zipalign not found in Android SDK build-tools"
             echo "Checked in: $ANDROID_HOME/build-tools"
