@@ -325,6 +325,23 @@ jobs:
             echo "Route already exists: $ROUTE_ID"
           fi
 
+          ROOT_ROUTE_ID=$(aws apigatewayv2 get-routes \
+            --api-id $API_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[?RouteKey=='ANY /'].RouteId | [0]" \
+            --output text)
+
+          if [ -z "$ROOT_ROUTE_ID" ] || [ "$ROOT_ROUTE_ID" = "None" ]; then
+            aws apigatewayv2 create-route \
+              --api-id $API_ID \
+              --route-key "ANY /" \
+              --target "integrations/$INTEGRATION_ID" \
+              --region ${{ env.AWS_REGION }}
+            echo "Created route: ANY /"
+          else
+            echo "Route already exists: $ROOT_ROUTE_ID"
+          fi
+
           STAGE_NAME=${{ env.API_STAGE }}
           STAGE_EXISTS=$(aws apigatewayv2 get-stages \
             --api-id $API_ID \
@@ -353,17 +370,21 @@ jobs:
           STATEMENT_ID="${{ env.FUNCTION_NAME }}-apigw"
 
           if aws lambda get-policy --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null | grep -q "$STATEMENT_ID"; then
-            echo "Lambda permission already exists: $STATEMENT_ID"
-          else
-            aws lambda add-permission \
+            echo "Updating Lambda permission for API Gateway"
+            aws lambda remove-permission \
               --function-name ${{ env.FUNCTION_NAME }} \
               --statement-id $STATEMENT_ID \
-              --action lambda:InvokeFunction \
-              --principal apigateway.amazonaws.com \
-              --source-arn "$SOURCE_ARN" \
               --region ${{ env.AWS_REGION }}
-            echo "Added Lambda invoke permission for API Gateway"
           fi
+
+          aws lambda add-permission \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --statement-id $STATEMENT_ID \
+            --action lambda:InvokeFunction \
+            --principal apigateway.amazonaws.com \
+            --source-arn "$SOURCE_ARN" \
+            --region ${{ env.AWS_REGION }}
+          echo "Added Lambda invoke permission for API Gateway"
 
           API_ENDPOINT=$(aws apigatewayv2 get-api \
             --api-id $API_ID \
