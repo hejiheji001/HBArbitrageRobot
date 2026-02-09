@@ -45,6 +45,7 @@ jobs:
         with:
           name: windows-client
           path: ./HBArbitrageRobot-Client-Windows-x64.zip
+          retention-days: 3
 
   build-macos:
     name: Build macOS Client
@@ -83,12 +84,14 @@ jobs:
         with:
           name: macos-client-x64
           path: ./HBArbitrageRobot-Client-macOS-x64.zip
+          retention-days: 3
 
       - name: Upload macOS ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-client-arm64
           path: ./HBArbitrageRobot-Client-macOS-ARM64.zip
+          retention-days: 3
 
   build-android:
     name: Build Android APK
@@ -192,6 +195,7 @@ jobs:
         with:
           name: android-client
           path: ./HBArbitrageRobot-Client-Android.apk
+          retention-days: 3
 
   create-release:
     name: Create GitHub Release
