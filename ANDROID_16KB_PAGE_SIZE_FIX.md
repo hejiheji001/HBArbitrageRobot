@@ -13,13 +13,13 @@ which contains 'runtimes/android-x64/native/libSkiaSharp.so'.
 
 ## Solution
 
-The fix involves using the `zipalign` tool with the `-p` flag to realign the APK with 16 KB page size during the build process. This ensures that all native libraries (including `libSkiaSharp.so`) are properly aligned to meet Android 16's requirements.
+The fix involves using the `zipalign` tool with the `-P 16` flag to realign the APK with 16 KB page size during the build process. This ensures that all native libraries (including `libSkiaSharp.so`) are properly aligned to meet Android 16's requirements.
 
 ### Changes Made
 
 1. **GitHub Actions Workflow** (`.github/workflows/build-release-client.yml`):
    - Added a new step "Align APK for 16KB page size (Android 16 compatibility)" after the APK is built
-   - This step uses the `zipalign` tool with `-p 16384` flag to realign the APK
+   - This step uses the `zipalign` tool with `-P 16` flag to realign the APK
    - The step also verifies the alignment was successful
 
 ### How It Works
