@@ -133,6 +133,60 @@ jobs:
             exit 1
           fi
 
+      - name: Align APK for 16KB page size (Android 16 compatibility)
+        run: |
+          # Check if ANDROID_HOME is set
+          if [ -z "$ANDROID_HOME" ]; then
+            echo "ERROR: ANDROID_HOME environment variable is not set"
+            exit 1
+          fi
+
+          # Find zipalign tool from Android SDK (use the latest version)
+          # First try to get the latest stable version, fallback to any version if needed
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | \
+            grep -v '\-rc\|\-alpha\|\-beta' | sort -Vr | head -n 1)
+          
+          # If no stable version found, try any version
+          if [ -z "$ZIPALIGN" ]; then
+            ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | \
+              sort -Vr | head -n 1)
+          fi
+          
+          if [ -z "$ZIPALIGN" ]; then
+            echo "ERROR: zipalign not found in Android SDK build-tools"
+            echo "Checked in: $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          echo "Using zipalign: $ZIPALIGN"
+
+          # Verify input APK exists
+          if [ ! -f "./HBArbitrageRobot-Client-Android.apk" ]; then
+            echo "ERROR: Input APK not found"
+            exit 1
+          fi
+
+          # Create a backup of the original APK
+          echo "Creating backup of original APK..."
+          cp ./HBArbitrageRobot-Client-Android.apk ./HBArbitrageRobot-Client-Android-original.apk
+
+          # Realign APK with 16KB page size for Android 16 compatibility
+          # The -P flag with value 16 (16KB) ensures native libraries are aligned correctly
+          echo "Aligning APK with 16KB page size..."
+          $ZIPALIGN -f -P 16 4 ./HBArbitrageRobot-Client-Android-original.apk ./HBArbitrageRobot-Client-Android.apk
+
+          # Verify alignment
+          echo "Verifying alignment..."
+          if ! $ZIPALIGN -c -P 16 4 ./HBArbitrageRobot-Client-Android.apk; then
+            echo "ERROR: APK alignment verification failed"
+            exit 1
+          fi
+          echo "APK successfully aligned for 16KB page size"
+
+          # Clean up backup file
+          echo "Cleaning up backup file..."
+          rm -f ./HBArbitrageRobot-Client-Android-original.apk
+          echo "Alignment process completed successfully"
+
       - name: Upload Android APK artifact
         uses: actions/upload-artifact@v4
         with:
