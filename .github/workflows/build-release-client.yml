@@ -142,14 +142,14 @@ jobs:
             exit 1
           fi
           echo "Using zipalign: $ZIPALIGN"
-          
+
           # Create a backup of the original APK
           cp ./HBArbitrageRobot-Client-Android.apk ./HBArbitrageRobot-Client-Android-original.apk
-          
+
           # Realign APK with 16KB page size for Android 16 compatibility
           # The -p flag with value 16384 (16KB) ensures native libraries are aligned correctly
           $ZIPALIGN -f -p 16384 ./HBArbitrageRobot-Client-Android-original.apk ./HBArbitrageRobot-Client-Android.apk
-          
+
           # Verify alignment
           $ZIPALIGN -c -p 16384 ./HBArbitrageRobot-Client-Android.apk
           echo "APK successfully aligned for 16KB page size"
