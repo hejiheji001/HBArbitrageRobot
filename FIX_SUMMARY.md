@@ -13,6 +13,7 @@ Added AWS Lambda Web Adapter to the Server Docker container. This adapter acts a
 1. **Server/Dockerfile**
    - Added AWS Lambda Web Adapter from AWS public ECR
    - Configured readiness check to use `/health` endpoint
+   - **Added `AWS_LWA_REMOVE_BASE_PATH=/prod` to strip API Gateway stage prefix**
    - Added curl package for adapter download
 
 2. **Server/Controllers/HealthController.cs** (New)
@@ -78,8 +79,9 @@ API Gateway → Lambda → Container (ASP.NET Core)
 
 ### After (Fixed)
 ```
-API Gateway → Lambda → Web Adapter → HTTP → ASP.NET Core
-                                   ← HTTP ←
+API Gateway → Lambda → Web Adapter → Strip /prod → HTTP → ASP.NET Core
+(/prod/health)                       (/health)
+                                              ← HTTP ←
               ← Lambda Response ←
               ✓ Success
 ```

@@ -26,6 +26,7 @@ The AWS Lambda Web Adapter is a Lambda extension that allows you to run web appl
 - Added AWS Lambda Web Adapter as a Lambda extension layer
 - Added `curl` package (required for downloading adapter)
 - Configured readiness check environment variables
+- **Configured path base removal to strip the `/prod` stage prefix from API Gateway requests**
 - The adapter is copied from the official AWS public ECR image
 
 ```dockerfile
@@ -35,6 +36,7 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt
 # AWS Lambda Web Adapter configuration
 ENV AWS_LWA_READINESS_CHECK_PATH=/health
 ENV AWS_LWA_READINESS_CHECK_PORT=8080
+ENV AWS_LWA_REMOVE_BASE_PATH=/prod
 ```
 
 #### 2. Server/Controllers/HealthController.cs (New File)
@@ -75,10 +77,17 @@ API Gateway → Lambda (payload v2.0) → Container (ASP.NET Core)
 
 ### After (Fixed)
 ```
-API Gateway → Lambda (payload v2.0) → Web Adapter → HTTP Request → ASP.NET Core
-                                                    ← HTTP Response ←
+API Gateway → Lambda (payload v2.0) → Web Adapter → Strip /prod → HTTP Request → ASP.NET Core
+(/prod/health)                                       (/health)      (/health)
+                                                                   ← HTTP Response ←
               ← Lambda Response ←
 ```
+
+The Web Adapter:
+1. Receives Lambda invocations with paths like `/prod/health` or `/prod/api/data`
+2. Strips the `/prod` prefix using `AWS_LWA_REMOVE_BASE_PATH` environment variable
+3. Forwards clean paths like `/health` or `/api/data` to ASP.NET Core on localhost:8080
+4. Returns responses back to API Gateway in Lambda format
 
 ## Testing
 
