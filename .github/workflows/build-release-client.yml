@@ -147,11 +147,11 @@ jobs:
           cp ./HBArbitrageRobot-Client-Android.apk ./HBArbitrageRobot-Client-Android-original.apk
 
           # Realign APK with 16KB page size for Android 16 compatibility
-          # The -p flag with value 16384 (16KB) ensures native libraries are aligned correctly
-          $ZIPALIGN -f -p 16384 ./HBArbitrageRobot-Client-Android-original.apk ./HBArbitrageRobot-Client-Android.apk
+          # The -P flag with value 16 (16KB) ensures native libraries are aligned correctly
+          $ZIPALIGN -f -P 16 4 ./HBArbitrageRobot-Client-Android-original.apk ./HBArbitrageRobot-Client-Android.apk
 
           # Verify alignment
-          $ZIPALIGN -c -p 16384 ./HBArbitrageRobot-Client-Android.apk
+          $ZIPALIGN -c -P 16 4 ./HBArbitrageRobot-Client-Android.apk
           echo "APK successfully aligned for 16KB page size"
 
       - name: Upload Android APK artifact

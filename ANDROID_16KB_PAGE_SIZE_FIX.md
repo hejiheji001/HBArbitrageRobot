@@ -24,17 +24,27 @@ The fix involves using the `zipalign` tool with the `-p` flag to realign the APK
 
 ### How It Works
 
-The `zipalign` tool is part of the Android SDK build tools and is used to optimize APK files. The `-p` flag with value `16384` (16 KB) ensures that:
+The `zipalign` tool is part of the Android SDK build tools and is used to optimize APK files. The `-P 16` flag ensures that:
 
 1. All uncompressed data within the APK is aligned on 16 KB boundaries
 2. Native libraries like `libSkiaSharp.so` are properly aligned
 3. The APK is compatible with Android 16's memory page size requirements
 
+The command used is:
+```bash
+zipalign -f -P 16 4 input.apk output.apk
+```
+
+Where:
+- `-f` forces overwriting of the output file
+- `-P 16` specifies 16 KB page size alignment
+- `4` is the base alignment in bytes (for 32-bit alignment)
+
 ### Verification
 
 The workflow includes a verification step:
 ```bash
-$ZIPALIGN -c -p 16384 ./HBArbitrageRobot-Client-Android.apk
+$ZIPALIGN -c -P 16 4 ./HBArbitrageRobot-Client-Android.apk
 ```
 
 This checks that the APK is properly aligned and will fail the build if alignment is incorrect.
