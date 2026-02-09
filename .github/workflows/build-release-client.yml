@@ -135,24 +135,38 @@ jobs:
 
       - name: Align APK for 16KB page size (Android 16 compatibility)
         run: |
-          # Find zipalign tool from Android SDK
-          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" | sort -V | tail -n 1)
+          # Find zipalign tool from Android SDK (use the latest version)
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" 2>/dev/null | sort -Vr | head -n 1)
           if [ -z "$ZIPALIGN" ]; then
-            echo "zipalign not found in Android SDK"
+            echo "ERROR: zipalign not found in Android SDK"
             exit 1
           fi
           echo "Using zipalign: $ZIPALIGN"
 
+          # Verify input APK exists
+          if [ ! -f "./HBArbitrageRobot-Client-Android.apk" ]; then
+            echo "ERROR: Input APK not found"
+            exit 1
+          fi
+
           # Create a backup of the original APK
+          echo "Creating backup of original APK..."
           cp ./HBArbitrageRobot-Client-Android.apk ./HBArbitrageRobot-Client-Android-original.apk
 
           # Realign APK with 16KB page size for Android 16 compatibility
           # The -P flag with value 16 (16KB) ensures native libraries are aligned correctly
+          echo "Aligning APK with 16KB page size..."
           $ZIPALIGN -f -P 16 4 ./HBArbitrageRobot-Client-Android-original.apk ./HBArbitrageRobot-Client-Android.apk
 
           # Verify alignment
+          echo "Verifying alignment..."
           $ZIPALIGN -c -P 16 4 ./HBArbitrageRobot-Client-Android.apk
           echo "APK successfully aligned for 16KB page size"
+
+          # Clean up backup file
+          echo "Cleaning up backup file..."
+          rm -f ./HBArbitrageRobot-Client-Android-original.apk
+          echo "Alignment process completed successfully"
 
       - name: Upload Android APK artifact
         uses: actions/upload-artifact@v4
