@@ -35,32 +35,53 @@ jobs:
             for (const artifactName of artifactNames) {
               console.log(`Processing artifacts for: ${artifactName}`);
               
-              // List all artifacts with this name
-              const artifacts = await github.rest.actions.listArtifactsForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: artifactName,
-                per_page: 100
-              });
-              
-              console.log(`Found ${artifacts.data.artifacts.length} artifacts for ${artifactName}`);
-              
-              // Sort by creation date (newest first)
-              const sortedArtifacts = artifacts.data.artifacts.sort((a, b) => 
-                new Date(b.created_at) - new Date(a.created_at)
-              );
-              
-              // Keep top 2, delete the rest
-              const toDelete = sortedArtifacts.slice(2);
-              console.log(`Keeping top 2, deleting ${toDelete.length} old artifacts for ${artifactName}`);
-              
-              for (const artifact of toDelete) {
-                console.log(`Deleting artifact ${artifact.id} (created: ${artifact.created_at})`);
-                await github.rest.actions.deleteArtifact({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  artifact_id: artifact.id
-                });
+              try {
+                // List all artifacts with this name (with pagination support)
+                let allArtifacts = [];
+                let page = 1;
+                let hasMore = true;
+                
+                while (hasMore) {
+                  const artifacts = await github.rest.actions.listArtifactsForRepo({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: artifactName,
+                    per_page: 100,
+                    page: page
+                  });
+                  
+                  allArtifacts = allArtifacts.concat(artifacts.data.artifacts);
+                  hasMore = artifacts.data.artifacts.length === 100;
+                  page++;
+                }
+                
+                console.log(`Found ${allArtifacts.length} artifacts for ${artifactName}`);
+                
+                // Sort by creation date (newest first)
+                const sortedArtifacts = allArtifacts.sort((a, b) => 
+                  new Date(b.created_at) - new Date(a.created_at)
+                );
+                
+                // Keep top 2, delete the rest
+                const toDelete = sortedArtifacts.slice(2);
+                console.log(`Keeping top 2, deleting ${toDelete.length} old artifacts for ${artifactName}`);
+                
+                for (const artifact of toDelete) {
+                  try {
+                    console.log(`Deleting artifact ${artifact.id} (created: ${artifact.created_at})`);
+                    await github.rest.actions.deleteArtifact({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      artifact_id: artifact.id
+                    });
+                  } catch (deleteError) {
+                    console.error(`Failed to delete artifact ${artifact.id}: ${deleteError.message}`);
+                    // Continue with next artifact even if one fails
+                  }
+                }
+              } catch (error) {
+                console.error(`Error processing ${artifactName}: ${error.message}`);
+                // Continue with next artifact name even if one fails
               }
             }
             
