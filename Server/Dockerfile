@@ -41,6 +41,8 @@ ENV ASPNETCORE_URLS=http://+:8080
 # Readiness check is used to determine when the app is ready
 ENV AWS_LWA_READINESS_CHECK_PATH=/health
 ENV AWS_LWA_READINESS_CHECK_PORT=8080
+# Remove the API Gateway stage prefix (e.g., /prod) from the request path
+ENV AWS_LWA_REMOVE_BASE_PATH=/prod
 
 # Lambda will invoke through the Web Adapter which proxies to our ASP.NET Core app
 ENTRYPOINT ["dotnet", "Server.dll"]
