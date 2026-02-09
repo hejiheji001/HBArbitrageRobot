@@ -114,6 +114,14 @@ if (!string.IsNullOrWhiteSpace(apiToken))
 {
     app.Use(async (context, next) =>
     {
+        // Skip authentication for health check and root endpoints
+        if (context.Request.Path.StartsWithSegments("/health") || 
+            context.Request.Path == "/")
+        {
+            await next();
+            return;
+        }
+
         if (context.Request.Path.StartsWithSegments("/api"))
         {
             if (!context.Request.Headers.TryGetValue("X-Api-Token", out var providedToken) ||
