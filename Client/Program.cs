@@ -274,12 +274,14 @@ internal class Program
     private static void PromptApiUrlSelection(ConfigurationService config)
     {
         var defaultChoice = IsLocalhostUrl(config.ApiUrl) ? "L" : "R";
+        var localApiUrl = config.LocalApiUrl;
+        var remoteApiUrl = config.RemoteApiUrl;
 
         while (true)
         {
             Console.WriteLine("Select API URL:");
-            Console.WriteLine("  [L] Local (http://localhost:5000)");
-            Console.WriteLine("  [R] Remote (API_URL)");
+            Console.WriteLine($"  [L] Local ({localApiUrl})");
+            Console.WriteLine($"  [R] Remote ({remoteApiUrl})");
             Console.Write($"Enter choice (default {defaultChoice}): ");
 
             var input = Console.ReadLine();
@@ -287,13 +289,23 @@ internal class Program
 
             if (choice.StartsWith("L", StringComparison.OrdinalIgnoreCase))
             {
-                config.SetApiUrlOverride("http://localhost:5000");
+                if (string.IsNullOrWhiteSpace(localApiUrl))
+                {
+                    Console.WriteLine("Local API URL is not configured. Set LOCAL_API_URL.");
+                    continue;
+                }
+                config.SetApiUrlOverride(localApiUrl);
                 return;
             }
 
             if (choice.StartsWith("R", StringComparison.OrdinalIgnoreCase))
             {
-                config.SetApiUrlOverride(string.Empty);
+                if (string.IsNullOrWhiteSpace(remoteApiUrl))
+                {
+                    Console.WriteLine("Remote API URL is not configured. Set API_URL.");
+                    continue;
+                }
+                config.SetApiUrlOverride(remoteApiUrl);
                 return;
             }
 

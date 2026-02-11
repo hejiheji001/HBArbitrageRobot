@@ -1,7 +1,6 @@
 using Client.Models;
 using Microsoft.Playwright;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 
 namespace Client.Services;
@@ -31,7 +30,7 @@ public class MultiUserExecutionService(
         if (users.Count == 0)
         {
             ReportProgress("No enabled users found");
-            return new List<ExecutionResult>();
+            return [];
         }
 
         ReportProgress($"Starting execution for {users.Count} user(s)");

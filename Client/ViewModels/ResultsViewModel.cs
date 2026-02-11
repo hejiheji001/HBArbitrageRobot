@@ -13,7 +13,7 @@ public class ResultsViewModel : ViewModelBase
     public ResultsViewModel(CredentialStorageService credentialStorage)
     {
         _credentialStorage = credentialStorage;
-        Results = new ObservableCollection<ExecutionResult>();
+        Results = [];
         _credentialStorage.ExecutionResultSaved += OnExecutionResultSaved;
         RefreshResults();
     }

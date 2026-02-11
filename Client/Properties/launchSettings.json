@@ -7,6 +7,8 @@
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
         "API_URL": "https://localhost:64743",
+        "LOCAL_API_URL": "https://localhost:64743",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "false"
@@ -19,6 +21,8 @@
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
         "API_URL": "https://localhost:64743",
+        "LOCAL_API_URL": "https://localhost:64743",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "true"
@@ -31,6 +35,8 @@
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
         "API_URL": "https://localhost:8080",
+        "LOCAL_API_URL": "https://localhost:8080",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000",
         "HEADLESS": "false"
@@ -41,6 +47,7 @@
       "commandLineArgs": "120000286633 962464 https://localhost:64743 14:15 1000 false",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "HEADLESS": "false"
       }
     },
@@ -52,6 +59,8 @@
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
         "API_URL": "https://localhost:64743",
+        "LOCAL_API_URL": "https://localhost:64743",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000"
       },
@@ -65,6 +74,8 @@
         "USERNAME": "120000286633",
         "PASSWORD": "962464",
         "API_URL": "https://localhost:64743",
+        "LOCAL_API_URL": "https://localhost:64743",
+        "API_TOKEN": "A0F6A89EBF538A07E6778EC37AEEFFB3D60691843A7B5D236DF69B9582C215C1",
         "PURCHASE_TIME": "14:15",
         "MAX_INVESTMENT": "1000"
       },

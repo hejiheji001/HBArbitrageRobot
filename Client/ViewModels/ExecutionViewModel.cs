@@ -1,7 +1,5 @@
 using ReactiveUI;
-using System;
 using System.Collections.ObjectModel;
-using System.Collections.Generic;
 using System.Windows.Input;
 using Client.Models;
 using Client.Services;
@@ -29,19 +27,21 @@ public class ExecutionViewModel : ViewModelBase
         _configurationService = new ConfigurationService();
         _configurationService.LoadConfiguration([]);
 
-        ApiUrlOptions = new List<ApiUrlOption>
-        {
-            new("Local (http://localhost:5000)", "http://localhost:5000"),
-            new("Remote (API_URL)", string.Empty)
-        };
-
-        _apiUrl = _configurationService.ApiUrl ?? string.Empty;
-        _selectedApiUrlOption = ResolveApiUrlOption(_apiUrl);
-        _apiUrl = _selectedApiUrlOption.Value;
+        var configuredApiUrl = _configurationService.RemoteApiUrl;
+        var localApiUrl = _configurationService.LocalApiUrl;
         _purchaseTime = _configurationService.PurchaseTime;
         _maxInvestment = _configurationService.MaxInvestmentPerHolder;
-        
-        LogMessages = new ObservableCollection<string>();
+
+        ApiUrlOptions =
+        [
+            new($"Local ({localApiUrl})", localApiUrl),
+            new($"Remote ({configuredApiUrl})", configuredApiUrl)
+        ];
+
+        _selectedApiUrlOption = ResolveApiUrlOption(configuredApiUrl, localApiUrl);
+        _apiUrl = _selectedApiUrlOption.Value;
+
+        LogMessages = [];
         SetupConsoleLogRedirection();
         
         StartExecutionCommand = ReactiveCommand.Create(StartExecution);
@@ -269,29 +269,19 @@ public class ExecutionViewModel : ViewModelBase
         }
     }
 
-    private ApiUrlOption ResolveApiUrlOption(string? apiUrl)
+    private ApiUrlOption ResolveApiUrlOption(string? remoteApiUrl, string? localApiUrl)
     {
-        if (IsLocalhostUrl(apiUrl))
+        if (!string.IsNullOrWhiteSpace(remoteApiUrl))
+        {
+            return ApiUrlOptions[1];
+        }
+
+        if (!string.IsNullOrWhiteSpace(localApiUrl))
         {
             return ApiUrlOptions[0];
         }
 
         return ApiUrlOptions[1];
-    }
-
-    private static bool IsLocalhostUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return false;
-        }
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            return false;
-        }
-
-        return uri.Host is "localhost" or "127.0.0.1" or "::1";
     }
 }
 

@@ -1,8 +1,4 @@
-using System;
-using System.IO;
 using System.Text;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Client.Services;
 
@@ -176,7 +172,7 @@ public class LoggingService
         }
         catch (Exception)
         {
-            return new List<string>();
+            return [];
         }
     }
 

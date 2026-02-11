@@ -1,7 +1,5 @@
 using Client.Models;
 using SQLite;
-using System;
-using System.Linq;
 using System.Text;
 
 namespace Client.Services;

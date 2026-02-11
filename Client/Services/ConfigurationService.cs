@@ -1,3 +1,6 @@
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+
 namespace Client.Services;
 
 /// <summary>
@@ -5,9 +8,18 @@ namespace Client.Services;
 /// </summary>
 public class ConfigurationService
 {
+    private static readonly Lazy<AmazonSimpleSystemsManagementClient> _ssmClient = new(() =>
+    {
+        var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "ap-northeast-1";
+        return new AmazonSimpleSystemsManagementClient(Amazon.RegionEndpoint.GetBySystemName(region));
+    });
+
+    private const string RemoteApiUrlParameterName = "/hbarbitrage/api-gateway-url";
     public string Username { get; private set; } = string.Empty;
     public string Password { get; private set; } = string.Empty;
     public string? ApiUrl { get; private set; }
+    public string RemoteApiUrl { get; private set; } = string.Empty;
+    public string LocalApiUrl { get; private set; } = string.Empty;
     public string ApiToken { get; private set; } = string.Empty;
     public string PurchaseTime { get; private set; } = "14:15";
     public decimal MaxInvestmentPerHolder { get; private set; } = 1000m;
@@ -23,16 +35,10 @@ public class ConfigurationService
         Password = GetConfig(args, "PASSWORD", 1);
         
         // Get API URL from config
-        var apiUrlConfig = GetConfig(args, "API_URL", 2, "");
-        if (!string.IsNullOrEmpty(apiUrlConfig))
-        {
-            ApiUrl = apiUrlConfig;
-        }
-        else
-        {
-            // API URL can be provided later via UI/CLI overrides
-            ApiUrl = string.Empty;
-        }
+        RemoteApiUrl = GetConfig(args, "API_URL", 2, "");
+        ApiUrl = RemoteApiUrl;
+
+        LocalApiUrl = GetConfig(args, "LOCAL_API_URL", 8, string.Empty);
 
         ApiToken = GetConfig(args, "API_TOKEN", 7, string.Empty);
         
@@ -72,9 +78,64 @@ public class ConfigurationService
             return ApiUrl;
         }
 
-        ApiUrl = "http://localhost:5000";
-        Console.WriteLine("⚠️  API_URL not configured. Using default URL: http://localhost:5000");
+        if (!string.IsNullOrEmpty(RemoteApiUrl))
+        {
+            ApiUrl = RemoteApiUrl;
+            return ApiUrl;
+        }
+
+        var remoteFromSsm = await GetRemoteApiUrlFromSsmAsync();
+        if (!string.IsNullOrWhiteSpace(remoteFromSsm))
+        {
+            RemoteApiUrl = remoteFromSsm;
+            ApiUrl = remoteFromSsm;
+            return ApiUrl;
+        }
+
+        if (!string.IsNullOrEmpty(LocalApiUrl))
+        {
+            ApiUrl = LocalApiUrl;
+            return ApiUrl;
+        }
+
+        Console.WriteLine("⚠️  API_URL/LOCAL_API_URL not configured.");
         return ApiUrl;
+    }
+
+    private static async Task<string?> GetRemoteApiUrlFromSsmAsync()
+    {
+        try
+        {
+            var ssmClient = _ssmClient.Value;
+            var response = await ssmClient.GetParameterAsync(new GetParameterRequest
+            {
+                Name = RemoteApiUrlParameterName
+            });
+
+            var url = response.Parameter.Value;
+            Console.WriteLine($"✅ Retrieved API Gateway URL from SSM: {url}");
+            return url;
+        }
+        catch (ParameterNotFoundException)
+        {
+            Console.WriteLine($"⚠️  API Gateway URL not found in SSM Parameter Store: {RemoteApiUrlParameterName}");
+            return null;
+        }
+        catch (Amazon.Runtime.AmazonServiceException ex) when (ex.ErrorCode == "AccessDeniedException")
+        {
+            Console.WriteLine("⚠️  Access denied to SSM Parameter Store. Ensure ssm:GetParameter permission.");
+            return null;
+        }
+        catch (Amazon.Runtime.AmazonClientException ex)
+        {
+            Console.WriteLine($"⚠️  AWS client error: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Unexpected error retrieving API Gateway URL from SSM: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

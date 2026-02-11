@@ -395,6 +395,18 @@ jobs:
           API_URL="$API_ENDPOINT/$STAGE_NAME"
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
           echo "✅ API Gateway URL: $API_URL"
+
+      - name: Store API Gateway URL in SSM
+        if: steps.api-gateway.outputs.api_url != ''
+        run: |
+          aws ssm put-parameter \
+            --name "/hbarbitrage/api-gateway-url" \
+            --type "String" \
+            --value "${{ steps.api-gateway.outputs.api_url }}" \
+            --description "HBArbitrageRobot API Gateway URL" \
+            --overwrite \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ API Gateway URL stored in SSM Parameter Store: /hbarbitrage/api-gateway-url"
       
       - name: Deployment Summary
         run: |

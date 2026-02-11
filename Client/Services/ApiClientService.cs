@@ -1,7 +1,6 @@
 using Client.Models;
 using Newtonsoft.Json;
 using Amazon.Runtime;
-using Amazon;
 using System.Text;
 
 namespace Client.Services;
