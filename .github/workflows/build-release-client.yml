@@ -21,7 +21,7 @@ jobs:
       actions: write
     
     steps:
-      - name: Delete old artifacts (keep top 2)
+      - name: Delete old artifacts (keep top 1)
         uses: actions/github-script@v7
         with:
           script: |
@@ -62,9 +62,9 @@ jobs:
                   new Date(b.created_at) - new Date(a.created_at)
                 );
                 
-                // Keep top 2, delete the rest
-                const toDelete = sortedArtifacts.slice(2);
-                console.log(`Keeping top 2, deleting ${toDelete.length} old artifacts for ${artifactName}`);
+                // Keep top 1, delete the rest
+                const toDelete = sortedArtifacts.slice(1);
+                console.log(`Keeping top 1, deleting ${toDelete.length} old artifacts for ${artifactName}`);
                 
                 for (const artifact of toDelete) {
                   try {
@@ -89,6 +89,7 @@ jobs:
 
   build-windows:
     name: Build Windows Client
+    needs: [cleanup-artifacts]
     runs-on: windows-latest
 
     permissions:
@@ -123,6 +124,7 @@ jobs:
 
   build-macos:
     name: Build macOS Client
+    needs: [cleanup-artifacts]
     runs-on: macos-latest
 
     permissions:
@@ -169,6 +171,7 @@ jobs:
 
   build-android:
     name: Build Android APK
+    needs: [cleanup-artifacts]
     runs-on: ubuntu-latest
 
     permissions:
